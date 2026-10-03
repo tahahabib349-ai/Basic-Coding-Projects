@@ -1,0 +1,474 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Conway's Game of Life</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Mono:wght@400;500&family=Instrument+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: engineering graph paper. A slim masthead, the board as the hero, a control strip beneath it. */
+:root {
+  --paper: #eef2f4;      /* page ground, cool blue-grey */
+  --sheet: #f8fafb;      /* board background */
+  --grid: #d3dde3;       /* graph-paper lines */
+  --ink: #1d2a4d;        /* text and mature cells */
+  --muted: #5d6a80;
+  --young: #e2572b;      /* newborn cells, vermilion ink */
+  --line: #c6d1d8;
+  --control: #ffffff;
+  --font-display: "Bricolage Grotesque", "Avenir Next", system-ui, sans-serif;
+  --font-body: "Instrument Sans", "Segoe UI", system-ui, sans-serif;
+  --font-data: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #0f1626; --sheet: #131c30; --grid: #1f2b44; --ink: #dbe4f5;
+    --muted: #8e9bb4; --young: #ff8a5c; --line: #2a3754; --control: #18233b;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #0f1626; --sheet: #131c30; --grid: #1f2b44; --ink: #dbe4f5;
+  --muted: #8e9bb4; --young: #ff8a5c; --line: #2a3754; --control: #18233b;
+  color-scheme: dark;
+}
+
+html, body { height: 100%; }
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 15px;
+  padding-inline: 16px;
+  box-sizing: border-box;
+}
+.app {
+  height: 100%;
+  max-width: 1200px;
+  margin-inline: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-block: 16px;
+  box-sizing: border-box;
+}
+
+header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 24px;
+}
+h1 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: clamp(1.5rem, 3.5vw, 2.25rem);
+  letter-spacing: -0.02em;
+  line-height: 1;
+  margin: 0;
+  text-wrap: balance;
+}
+h1 span { color: var(--young); }
+.readout {
+  display: flex;
+  gap: 20px;
+  font-family: var(--font-data);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+.readout b { color: var(--ink); font-weight: 500; }
+.rule { letter-spacing: 0.04em; }
+
+.board {
+  flex: 1;
+  min-height: 240px;
+  position: relative;
+  background: var(--sheet);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  overflow: hidden;
+  touch-action: none;
+  cursor: crosshair;
+}
+canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+}
+.group { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.spacer { flex: 1; }
+button, select {
+  font: 500 14px var(--font-body);
+  color: var(--ink);
+  background: var(--control);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 7px 12px;
+  cursor: pointer;
+  min-height: 36px;
+}
+button:hover, select:hover { border-color: var(--muted); }
+button:focus-visible, select:focus-visible, input:focus-visible {
+  outline: 2px solid var(--young);
+  outline-offset: 2px;
+}
+#play {
+  background: var(--ink);
+  color: var(--sheet);
+  border-color: var(--ink);
+  min-width: 84px;
+  font-weight: 600;
+}
+label.speed {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--muted);
+}
+input[type="range"] { accent-color: var(--young); width: 120px; }
+.speed output {
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+  min-width: 5ch;
+}
+.hint {
+  font-size: 12.5px;
+  color: var(--muted);
+  margin: 0;
+}
+kbd {
+  font-family: var(--font-data);
+  font-size: 11.5px;
+  border: 1px solid var(--line);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  padding: 0 5px;
+  background: var(--control);
+  color: var(--ink);
+}
+@media (max-width: 560px) {
+  .spacer { display: none; }
+  .hint .keys { display: none; }
+}
+</style>
+</head>
+<body>
+
+<div class="app">
+  <header>
+    <h1>Game of Life<span>.</span></h1>
+    <div class="readout" aria-live="off">
+      <span>gen <b id="gen">0</b></span>
+      <span>pop <b id="pop">0</b></span>
+      <span class="rule" title="Born with 3 neighbours, survives with 2 or 3">B3/S23</span>
+    </div>
+  </header>
+
+  <div class="board" id="board">
+    <canvas id="canvas" aria-label="Game of Life board. Click or drag to toggle cells."></canvas>
+  </div>
+
+  <div class="controls">
+    <div class="group">
+      <button id="play" type="button">Pause</button>
+      <button id="step" type="button">Step</button>
+      <button id="clear" type="button">Clear</button>
+      <button id="random" type="button">Randomize</button>
+    </div>
+    <div class="group">
+      <select id="pattern" aria-label="Place a pattern">
+        <option value="">Place a pattern…</option>
+        <option value="glider">Glider</option>
+        <option value="lwss">Lightweight spaceship</option>
+        <option value="pulsar">Pulsar (period 3)</option>
+        <option value="pentadecathlon">Pentadecathlon (period 15)</option>
+        <option value="gosper">Gosper glider gun</option>
+        <option value="rpent">R-pentomino (1,103 gens)</option>
+        <option value="acorn">Acorn (5,206 gens)</option>
+        <option value="diehard">Diehard (dies at 130)</option>
+      </select>
+    </div>
+    <span class="spacer"></span>
+    <label class="speed" for="speed">Speed
+      <input id="speed" type="range" min="1" max="60" value="15">
+      <output id="speedOut" for="speed">15/s</output>
+    </label>
+  </div>
+  <p class="hint">Click or drag on the board to draw cells. Fresh cells start orange and darken as they age.<span class="keys"> Keys: <kbd>Space</kbd> play/pause, <kbd>N</kbd> step, <kbd>R</kbd> randomize, <kbd>C</kbd> clear.</span></p>
+</div>
+
+<script>
+(() => {
+  // Patterns as row strings: "O" = live, anything else = dead.
+  const PATTERNS = {
+    glider: [".O.", "..O", "OOO"],
+    lwss: [".O..O", "O....", "O...O", "OOOO."],
+    pulsar: [
+      "..OOO...OOO..", ".............", "O....O.O....O", "O....O.O....O",
+      "O....O.O....O", "..OOO...OOO..", ".............", "..OOO...OOO..",
+      "O....O.O....O", "O....O.O....O", "O....O.O....O", ".............",
+      "..OOO...OOO.."
+    ],
+    pentadecathlon: ["..O....O..", "OO.OOOO.OO", "..O....O.."],
+    gosper: [
+      "........................O...........",
+      "......................O.O...........",
+      "............OO......OO............OO",
+      "...........O...O....OO............OO",
+      "OO........O.....O...OO..............",
+      "OO........O...O.OO....O.O...........",
+      "..........O.....O.......O...........",
+      "...........O...O....................",
+      "............OO......................"
+    ],
+    rpent: [".OO", "OO.", ".O."],
+    acorn: [".O.....", "...O...", "OO..OOO"],
+    diehard: ["......O.", "OO......", ".O...OOO"]
+  };
+
+  const board = document.getElementById("board");
+  const canvas = document.getElementById("canvas");
+  const ctx = canvas.getContext("2d");
+  const genEl = document.getElementById("gen");
+  const popEl = document.getElementById("pop");
+  const playBtn = document.getElementById("play");
+  const speed = document.getElementById("speed");
+  const speedOut = document.getElementById("speedOut");
+  const patternSel = document.getElementById("pattern");
+
+  let cell = 10;
+  let cols = 0, rows = 0;
+  let alive = new Uint8Array(0);
+  let age = new Uint16Array(0);
+  let generation = 0;
+  let running = false;
+  let colors = {};
+
+  function readColors() {
+    const s = getComputedStyle(document.documentElement);
+    const get = (n) => s.getPropertyValue(n).trim();
+    colors = { sheet: get("--sheet"), grid: get("--grid"), ink: get("--ink"), young: get("--young") };
+    colors.ramp = buildRamp(colors.young, colors.ink, 12);
+  }
+
+  function hexToRgb(h) {
+    const m = h.replace("#", "");
+    const full = m.length === 3 ? m.split("").map((c) => c + c).join("") : m;
+    const n = parseInt(full, 16);
+    return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+  }
+  function buildRamp(from, to, steps) {
+    const a = hexToRgb(from), b = hexToRgb(to), out = [];
+    for (let i = 0; i < steps; i++) {
+      const t = i / (steps - 1);
+      out.push(`rgb(${a.map((v, k) => Math.round(v + (b[k] - v) * t)).join(",")})`);
+    }
+    return out;
+  }
+
+  // Size the grid to the board, keeping existing cells anchored at the centre.
+  function resize() {
+    const rect = board.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    cell = rect.width < 500 ? 8 : 10;
+    const newCols = Math.max(10, Math.floor(rect.width / cell));
+    const newRows = Math.max(10, Math.floor(rect.height / cell));
+    canvas.width = Math.round(rect.width * dpr);
+    canvas.height = Math.round(rect.height * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    if (newCols !== cols || newRows !== rows) {
+      const nextAlive = new Uint8Array(newCols * newRows);
+      const nextAge = new Uint16Array(newCols * newRows);
+      const dx = Math.floor((newCols - cols) / 2), dy = Math.floor((newRows - rows) / 2);
+      for (let y = 0; y < rows; y++) {
+        for (let x = 0; x < cols; x++) {
+          const nx = x + dx, ny = y + dy;
+          if (nx < 0 || ny < 0 || nx >= newCols || ny >= newRows) continue;
+          nextAlive[ny * newCols + nx] = alive[y * cols + x];
+          nextAge[ny * newCols + nx] = age[y * cols + x];
+        }
+      }
+      cols = newCols; rows = newRows; alive = nextAlive; age = nextAge;
+    }
+    draw();
+  }
+
+  // One generation of B3/S23 on a torus (edges wrap around).
+  function step() {
+    const next = new Uint8Array(cols * rows);
+    const nextAge = new Uint16Array(cols * rows);
+    for (let y = 0; y < rows; y++) {
+      const up = ((y - 1 + rows) % rows) * cols, mid = y * cols, down = ((y + 1) % rows) * cols;
+      for (let x = 0; x < cols; x++) {
+        const l = (x - 1 + cols) % cols, r = (x + 1) % cols;
+        const n = alive[up + l] + alive[up + x] + alive[up + r]
+                + alive[mid + l] + alive[mid + r]
+                + alive[down + l] + alive[down + x] + alive[down + r];
+        const i = mid + x;
+        if (n === 3 || (n === 2 && alive[i])) {
+          next[i] = 1;
+          nextAge[i] = alive[i] ? Math.min(age[i] + 1, 65535) : 0;
+        }
+      }
+    }
+    alive = next; age = nextAge;
+    generation++;
+  }
+
+  function draw() {
+    const w = cols * cell, h = rows * cell;
+    const rect = board.getBoundingClientRect();
+    ctx.fillStyle = colors.sheet;
+    ctx.fillRect(0, 0, rect.width, rect.height);
+
+    // Graph-paper lines, with a heavier line every 10 cells.
+    ctx.lineWidth = 1;
+    for (let pass = 0; pass < 2; pass++) {
+      ctx.strokeStyle = colors.grid;
+      ctx.globalAlpha = pass === 0 ? 0.55 : 1;
+      ctx.beginPath();
+      for (let x = 0; x <= cols; x++) {
+        if ((x % 10 === 0) !== (pass === 1)) continue;
+        ctx.moveTo(x * cell + 0.5, 0); ctx.lineTo(x * cell + 0.5, h);
+      }
+      for (let y = 0; y <= rows; y++) {
+        if ((y % 10 === 0) !== (pass === 1)) continue;
+        ctx.moveTo(0, y * cell + 0.5); ctx.lineTo(w, y * cell + 0.5);
+      }
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+
+    let pop = 0;
+    const ramp = colors.ramp, last = ramp.length - 1;
+    for (let y = 0; y < rows; y++) {
+      for (let x = 0; x < cols; x++) {
+        const i = y * cols + x;
+        if (!alive[i]) continue;
+        pop++;
+        ctx.fillStyle = ramp[Math.min(age[i], last)];
+        ctx.fillRect(x * cell + 1, y * cell + 1, cell - 1, cell - 1);
+      }
+    }
+    genEl.textContent = generation.toLocaleString();
+    popEl.textContent = pop.toLocaleString();
+  }
+
+  function place(name, cx = Math.floor(cols / 2), cy = Math.floor(rows / 2)) {
+    const p = PATTERNS[name];
+    if (!p) return;
+    const ox = cx - Math.floor(p[0].length / 2), oy = cy - Math.floor(p.length / 2);
+    p.forEach((row, y) => {
+      [...row].forEach((ch, x) => {
+        if (ch !== "O") return;
+        const gx = (ox + x + cols) % cols, gy = (oy + y + rows) % rows;
+        alive[gy * cols + gx] = 1;
+        age[gy * cols + gx] = 0;
+      });
+    });
+  }
+
+  function clearBoard() {
+    alive.fill(0); age.fill(0); generation = 0;
+  }
+
+  function randomize() {
+    clearBoard();
+    for (let i = 0; i < alive.length; i++) alive[i] = Math.random() < 0.22 ? 1 : 0;
+  }
+
+  function setRunning(on) {
+    running = on;
+    playBtn.textContent = on ? "Pause" : "Play";
+    playBtn.setAttribute("aria-pressed", String(on));
+    if (on) { lastTick = performance.now(); requestAnimationFrame(loop); }
+  }
+
+  let lastTick = 0;
+  function loop(now) {
+    if (!running) return;
+    const interval = 1000 / Number(speed.value);
+    if (now - lastTick >= interval) {
+      lastTick = now;
+      step();
+      draw();
+    }
+    requestAnimationFrame(loop);
+  }
+
+  // Drawing: the first cell touched decides whether the drag paints or erases.
+  let painting = null;
+  function cellAt(e) {
+    const rect = canvas.getBoundingClientRect();
+    const x = Math.floor((e.clientX - rect.left) / cell);
+    const y = Math.floor((e.clientY - rect.top) / cell);
+    return x >= 0 && y >= 0 && x < cols && y < rows ? y * cols + x : -1;
+  }
+  canvas.addEventListener("pointerdown", (e) => {
+    const i = cellAt(e);
+    if (i < 0) return;
+    canvas.setPointerCapture(e.pointerId);
+    painting = alive[i] ? 0 : 1;
+    alive[i] = painting; age[i] = 0;
+    draw();
+  });
+  canvas.addEventListener("pointermove", (e) => {
+    if (painting === null) return;
+    const i = cellAt(e);
+    if (i < 0 || alive[i] === painting) return;
+    alive[i] = painting; age[i] = 0;
+    draw();
+  });
+  const endPaint = () => { painting = null; };
+  canvas.addEventListener("pointerup", endPaint);
+  canvas.addEventListener("pointercancel", endPaint);
+
+  playBtn.addEventListener("click", () => setRunning(!running));
+  document.getElementById("step").addEventListener("click", () => { setRunning(false); step(); draw(); });
+  document.getElementById("clear").addEventListener("click", () => { setRunning(false); clearBoard(); draw(); });
+  document.getElementById("random").addEventListener("click", () => { randomize(); draw(); });
+  patternSel.addEventListener("change", () => {
+    if (!patternSel.value) return;
+    place(patternSel.value);
+    patternSel.value = "";
+    draw();
+  });
+  speed.addEventListener("input", () => { speedOut.textContent = `${speed.value}/s`; });
+
+  document.addEventListener("keydown", (e) => {
+    if (e.target.closest("select, input") || e.metaKey || e.ctrlKey || e.altKey) return;
+    const k = e.key.toLowerCase();
+    if (k === " ") { e.preventDefault(); setRunning(!running); }
+    else if (k === "n" || k === "arrowright") { setRunning(false); step(); draw(); }
+    else if (k === "r") { randomize(); draw(); }
+    else if (k === "c") { setRunning(false); clearBoard(); draw(); }
+  });
+
+  const scheme = window.matchMedia("(prefers-color-scheme: dark)");
+  scheme.addEventListener?.("change", () => { readColors(); draw(); });
+  new MutationObserver(() => { readColors(); draw(); })
+    .observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+  new ResizeObserver(resize).observe(board);
+
+  // Open on the Gosper glider gun firing a stream of gliders.
+  readColors();
+  resize();
+  place("gosper", 20, 8);
+  for (let i = 0; i < 60; i++) step();
+  draw();
+  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  setRunning(!reduceMotion);
+})();
+</script>
+</body>
+</html>

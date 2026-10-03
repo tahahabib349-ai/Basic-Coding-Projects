@@ -1,0 +1,460 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>DCF Valuation Playground</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@600;800&family=Public+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: an analyst's model sheet. Assumptions panel on the left, outputs flowing down the right; stacks on phones. */
+:root {
+  --bg: #f3f4f1;          /* page ground, faint green-grey */
+  --surface: #ffffff;     /* panels and tables */
+  --ink: #18201c;         /* formulas and text (black, per model convention) */
+  --muted: #5f6b64;
+  --rule: #dde1dc;
+  --input: #1b4fd1;       /* hard-coded inputs are blue, per model convention */
+  --input-bg: #f1f5ff;
+  --s1: #2b62b8;          /* PV of forecast cash flows */
+  --s2: #c2711a;          /* PV of terminal value */
+  --up: #2f6fdb;          /* sensitivity: above current price */
+  --down: #d4493b;        /* sensitivity: below current price */
+  --mid: #f0efec;         /* sensitivity: neutral */
+  --error: #b3261e;
+  --font-display: "Schibsted Grotesk", "Helvetica Neue", Arial, sans-serif;
+  --font-body: "Public Sans", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #101412; --surface: #161b1f; --ink: #e4e9e5; --muted: #98a39c; --rule: #2a322e;
+    --input: #8db0ff; --input-bg: #1a2335; --s1: #5b8fe0; --s2: #c97d22;
+    --up: #4d86e8; --down: #e0604f; --mid: #383835; --error: #ff8a80;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #101412; --surface: #161b1f; --ink: #e4e9e5; --muted: #98a39c; --rule: #2a322e;
+  --input: #8db0ff; --input-bg: #1a2335; --s1: #5b8fe0; --s2: #c97d22;
+  --up: #4d86e8; --down: #e0604f; --mid: #383835; --error: #ff8a80;
+  color-scheme: dark;
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.5;
+  padding-inline: 16px;
+}
+.page { max-width: 1240px; margin-inline: auto; padding-block: 24px 40px; display: grid; gap: 20px; }
+.num { font-variant-numeric: tabular-nums; }
+[hidden] { display: none !important; }
+
+header { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 8px 24px; }
+h1 {
+  font-family: var(--font-display); font-weight: 800; letter-spacing: -0.025em;
+  font-size: clamp(1.6rem, 3.6vw, 2.4rem); line-height: 1.05; margin: 0; text-wrap: balance;
+}
+.sub { margin: 6px 0 0; color: var(--muted); max-width: 62ch; }
+.key { display: flex; gap: 14px; font-size: 12.5px; color: var(--muted); }
+.key span::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+.key .k-in::before { background: var(--input); }
+.key .k-calc::before { background: var(--ink); }
+
+.layout { display: grid; grid-template-columns: 340px minmax(0, 1fr); gap: 20px; align-items: start; }
+@media (max-width: 880px) { .layout { grid-template-columns: minmax(0, 1fr); } }
+
+.panel { background: var(--surface); border: 1px solid var(--rule); border-radius: 8px; padding: 18px; min-width: 0; }
+h2 {
+  font-family: var(--font-display); font-weight: 600; font-size: 13px; text-transform: uppercase;
+  letter-spacing: 0.08em; color: var(--muted); margin: 0 0 12px;
+}
+
+/* Assumptions */
+.assumptions { display: grid; gap: 18px; }
+fieldset { border: 0; margin: 0; padding: 0; display: grid; gap: 8px; }
+legend { font-family: var(--font-display); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); padding: 0; margin-bottom: 8px; }
+.field { display: grid; grid-template-columns: minmax(0, 1fr) 140px; align-items: center; gap: 10px; }
+.field label { color: var(--ink); }
+.field small { display: block; color: var(--muted); font-size: 11.5px; line-height: 1.3; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.pair .inbox input { padding-right: 20px; }
+.pair .inbox::after { right: 6px; }
+.inbox { position: relative; }
+.inbox input {
+  width: 100%; box-sizing: border-box; font: 500 14px var(--font-body); font-variant-numeric: tabular-nums;
+  color: var(--input); background: var(--input-bg); border: 1px solid transparent; border-radius: 5px;
+  padding: 6px 26px 6px 8px; text-align: right;
+}
+.inbox.no-unit input { padding-right: 8px; }
+.inbox::after { content: attr(data-unit); position: absolute; right: 8px; top: 50%; transform: translateY(-50%); color: var(--muted); font-size: 12px; pointer-events: none; }
+.inbox input:hover { border-color: var(--rule); }
+input:focus-visible, button:focus-visible, select:focus-visible { outline: 2px solid var(--input); outline-offset: 1px; }
+.seg { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid var(--rule); border-radius: 6px; overflow: hidden; }
+.seg button { font: 500 13px var(--font-body); padding: 7px 6px; border: 0; background: transparent; color: var(--muted); cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--surface); }
+.check { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+.check input { accent-color: var(--input); width: 16px; height: 16px; }
+.reset { font: 500 13px var(--font-body); color: var(--muted); background: transparent; border: 1px solid var(--rule); border-radius: 6px; padding: 7px 10px; cursor: pointer; justify-self: start; }
+.reset:hover { color: var(--ink); border-color: var(--muted); }
+
+/* Outputs */
+.outputs { display: grid; gap: 20px; min-width: 0; }
+.headline { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 2fr); gap: 24px; align-items: center; }
+@media (max-width: 620px) { .headline { grid-template-columns: minmax(0, 1fr); } }
+.price-label { color: var(--muted); font-size: 13px; }
+.price { font-family: var(--font-display); font-weight: 800; font-size: clamp(2.6rem, 6vw, 3.6rem); letter-spacing: -0.03em; line-height: 1; margin: 4px 0 10px; }
+.chip { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; font-size: 13px; padding: 3px 10px; border-radius: 999px; background: var(--mid); }
+.chip.up { background: color-mix(in oklab, var(--up) 22%, var(--surface)); }
+.chip.down { background: color-mix(in oklab, var(--down) 22%, var(--surface)); }
+.facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 20px; margin: 0; }
+.facts div { border-top: 1px solid var(--rule); padding-top: 8px; }
+.facts dt { color: var(--muted); font-size: 12.5px; }
+.facts dd { margin: 0; font-weight: 600; font-size: 16px; font-variant-numeric: tabular-nums; }
+.error { color: var(--error); font-weight: 600; margin: 0; }
+
+/* EV composition bar */
+.bar { display: flex; gap: 2px; height: 28px; margin: 6px 0 10px; }
+.bar div { min-width: 2px; position: relative; cursor: default; }
+.bar div:first-child { border-radius: 4px 0 0 4px; }
+.bar div:last-child { border-radius: 0 4px 4px 0; }
+.bar .s1 { background: var(--s1); }
+.bar .s2 { background: var(--s2); }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 22px; font-size: 13px; }
+.legend span::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+.legend .l1::before { background: var(--s1); }
+.legend .l2::before { background: var(--s2); }
+.legend b { font-weight: 600; font-variant-numeric: tabular-nums; }
+.note { color: var(--muted); font-size: 12.5px; margin: 10px 0 0; max-width: 72ch; }
+
+/* Tables */
+.scroll { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+th, td { padding: 6px 10px; text-align: right; white-space: nowrap; }
+thead th { font-weight: 600; color: var(--muted); font-size: 12.5px; border-bottom: 1px solid var(--ink); }
+tbody th { text-align: left; font-weight: 500; }
+tbody tr + tr th, tbody tr + tr td { border-top: 1px solid var(--rule); }
+tr.sub th, tr.sub td { color: var(--muted); font-size: 12.5px; border-top: 0 !important; padding-top: 0; }
+tr.total th, tr.total td { font-weight: 600; border-top: 1px solid var(--ink) !important; }
+td.in { color: var(--input); }
+
+.sens-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 6px 16px; margin-bottom: 10px; }
+.sens-head h2 { margin: 0; }
+.scale { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); }
+.scale i { display: block; width: 120px; height: 10px; border-radius: 2px; background: linear-gradient(90deg, color-mix(in oklab, var(--down) 60%, var(--mid)), var(--mid), color-mix(in oklab, var(--up) 60%, var(--mid))); }
+table.sens { table-layout: fixed; min-width: 420px; }
+table.sens td { text-align: center; padding: 9px 6px; border: 2px solid var(--surface) !important; border-radius: 4px; }
+table.sens tbody th { text-align: right; color: var(--muted); font-weight: 600; font-size: 12.5px; }
+table.sens thead th { text-align: center; border-bottom: 0; }
+table.sens td.base { outline: 2px solid var(--ink); outline-offset: -2px; font-weight: 700; }
+.axis-x { text-align: center; color: var(--muted); font-size: 12px; margin: 0 0 4px; }
+footer { color: var(--muted); font-size: 12.5px; max-width: 80ch; }
+footer p { margin: 0 0 6px; }
+</style>
+</head>
+<body>
+
+<div class="page">
+  <header>
+    <div>
+      <h1>DCF Valuation Playground</h1>
+      <p class="sub">A five-year unlevered free cash flow model. Change any assumption and every output, including the sensitivity grid, recalculates.</p>
+    </div>
+    <div class="key"><span class="k-in">Input</span><span class="k-calc">Calculated</span></div>
+  </header>
+
+  <div class="layout">
+    <form class="panel assumptions" id="form" autocomplete="off">
+      <fieldset>
+        <legend>Company</legend>
+        <div class="field"><label for="name">Name</label><div class="inbox no-unit"><input id="name" type="text" style="text-align:left"></div></div>
+        <div class="field"><label for="rev0">Last-year revenue<small>$ millions</small></label><div class="inbox" data-unit="$M"><input id="rev0" type="number" step="10" min="0"></div></div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Operations, year 1 → year 5</legend>
+        <div class="field"><label>Revenue growth<small>fades linearly between years</small></label>
+          <div class="pair"><div class="inbox" data-unit="%"><input id="g1" type="number" step="0.5" aria-label="Revenue growth, year 1"></div><div class="inbox" data-unit="%"><input id="g5" type="number" step="0.5" aria-label="Revenue growth, year 5"></div></div></div>
+        <div class="field"><label>EBIT margin</label>
+          <div class="pair"><div class="inbox" data-unit="%"><input id="m1" type="number" step="0.5" aria-label="EBIT margin, year 1"></div><div class="inbox" data-unit="%"><input id="m5" type="number" step="0.5" aria-label="EBIT margin, year 5"></div></div></div>
+        <div class="field"><label for="tax">Tax rate</label><div class="inbox" data-unit="%"><input id="tax" type="number" step="0.5" min="0" max="100"></div></div>
+        <div class="field"><label for="da">D&amp;A<small>% of revenue</small></label><div class="inbox" data-unit="%"><input id="da" type="number" step="0.5" min="0"></div></div>
+        <div class="field"><label for="capex">Capex<small>% of revenue</small></label><div class="inbox" data-unit="%"><input id="capex" type="number" step="0.5" min="0"></div></div>
+        <div class="field"><label for="nwc">Net working capital<small>% of revenue change</small></label><div class="inbox" data-unit="%"><input id="nwc" type="number" step="1"></div></div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Discounting &amp; terminal value</legend>
+        <div class="field"><label for="wacc">WACC</label><div class="inbox" data-unit="%"><input id="wacc" type="number" step="0.25" min="0"></div></div>
+        <div class="seg" role="group" aria-label="Terminal value method">
+          <button type="button" id="tvGordon" aria-pressed="true">Perpetuity growth</button>
+          <button type="button" id="tvExit" aria-pressed="false">Exit multiple</button>
+        </div>
+        <div class="field" id="rowTg"><label for="tg">Terminal growth</label><div class="inbox" data-unit="%"><input id="tg" type="number" step="0.25"></div></div>
+        <div class="field" id="rowMult" hidden><label for="mult">Exit EV / EBITDA</label><div class="inbox" data-unit="×"><input id="mult" type="number" step="0.5" min="0"></div></div>
+        <label class="check"><input id="midyear" type="checkbox"> Mid-year convention</label>
+      </fieldset>
+
+      <fieldset>
+        <legend>Equity bridge</legend>
+        <div class="field"><label for="debt">Net debt<small>negative if net cash</small></label><div class="inbox" data-unit="$M"><input id="debt" type="number" step="10"></div></div>
+        <div class="field"><label for="shares">Diluted shares</label><div class="inbox" data-unit="M"><input id="shares" type="number" step="1" min="0"></div></div>
+        <div class="field"><label for="price">Current share price</label><div class="inbox" data-unit="$"><input id="price" type="number" step="0.5" min="0"></div></div>
+      </fieldset>
+
+      <button type="button" class="reset" id="reset">Reset to sample company</button>
+    </form>
+
+    <div class="outputs">
+      <section class="panel" aria-labelledby="h-val">
+        <h2 id="h-val">Valuation</h2>
+        <p class="error" id="err" hidden></p>
+        <div class="headline" id="headline">
+          <div>
+            <div class="price-label">Implied value per share</div>
+            <div class="price num" id="outPrice">–</div>
+            <span class="chip" id="outUpside">–</span>
+          </div>
+          <dl class="facts">
+            <div><dt>Enterprise value</dt><dd id="outEV">–</dd></div>
+            <div><dt>Equity value</dt><dd id="outEq">–</dd></div>
+            <div><dt id="crossLabel">Implied exit multiple</dt><dd id="outCross">–</dd></div>
+            <div><dt>Terminal value share of EV</dt><dd id="outTVShare">–</dd></div>
+          </dl>
+        </div>
+      </section>
+
+      <section class="panel" aria-labelledby="h-comp">
+        <h2 id="h-comp">Where the enterprise value comes from</h2>
+        <div class="bar" id="bar" role="img"><div class="s1" id="bar1"></div><div class="s2" id="bar2"></div></div>
+        <div class="legend"><span class="l1">PV of years 1–5 cash flow <b id="leg1">–</b></span><span class="l2">PV of terminal value <b id="leg2">–</b></span></div>
+        <p class="note" id="tvNote"></p>
+      </section>
+
+      <section class="panel" aria-labelledby="h-proj">
+        <h2 id="h-proj">Free cash flow forecast ($M)</h2>
+        <div class="scroll"><table id="proj"></table></div>
+      </section>
+
+      <section class="panel" aria-labelledby="h-sens">
+        <div class="sens-head">
+          <h2 id="h-sens">Sensitivity: value per share</h2>
+          <div class="scale"><span>Below current price</span><i></i><span>Above</span></div>
+        </div>
+        <p class="axis-x" id="sensAxis">Terminal growth</p>
+        <div class="scroll"><table class="sens" id="sens"></table></div>
+        <p class="note">Rows vary WACC; columns vary the terminal assumption. The outlined cell is your base case.</p>
+      </section>
+    </div>
+  </div>
+
+  <footer>
+    <p>Unlevered free cash flow = EBIT × (1 − tax) + D&amp;A − capex − increase in net working capital. Terminal value uses the Gordon growth formula on year-6 cash flow, or an EV/EBITDA multiple on year-5 EBITDA.</p>
+    <p>With the mid-year convention, forecast cash flows are discounted at t − 0.5. A perpetuity-growth terminal value is discounted at 4.5 years, an exit-multiple terminal value at 5 years. Sample figures are illustrative and describe no real company.</p>
+  </footer>
+</div>
+
+<script>
+(() => {
+  const SAMPLE = {
+    name: "Example Co. (sample)", rev0: 1000, g1: 12, g5: 5, m1: 18, m5: 22, tax: 25, da: 4, capex: 5, nwc: 10,
+    wacc: 9, tvMethod: "gordon", tg: 2.5, mult: 12, midyear: true, debt: 500, shares: 100, price: 30
+  };
+  const NUM_FIELDS = ["rev0", "g1", "g5", "m1", "m5", "tax", "da", "capex", "nwc", "wacc", "tg", "mult", "debt", "shares", "price"];
+  const STORE = "dcf-playground-v1";
+  const $ = (id) => document.getElementById(id);
+
+  let state = load();
+
+  function load() {
+    try {
+      const saved = JSON.parse(localStorage.getItem(STORE) || "null");
+      if (saved && typeof saved === "object") return { ...SAMPLE, ...saved };
+    } catch (_) {}
+    return { ...SAMPLE };
+  }
+  function save() { try { localStorage.setItem(STORE, JSON.stringify(state)); } catch (_) {} }
+
+  function fillForm() {
+    $("name").value = state.name;
+    NUM_FIELDS.forEach((k) => { $(k).value = state[k]; });
+    $("midyear").checked = state.midyear;
+    setMethod(state.tvMethod, false);
+  }
+
+  function setMethod(m, rerender = true) {
+    state.tvMethod = m;
+    $("tvGordon").setAttribute("aria-pressed", String(m === "gordon"));
+    $("tvExit").setAttribute("aria-pressed", String(m === "exit"));
+    $("rowTg").hidden = m !== "gordon";
+    $("rowMult").hidden = m !== "exit";
+    if (rerender) { save(); render(); }
+  }
+
+  // Pure model: inputs in, valuation out. Percent inputs arrive as whole numbers (12 = 12%).
+  function model(p, wacc = p.wacc / 100, tvParam = p.tvMethod === "gordon" ? p.tg / 100 : p.mult) {
+    const years = [];
+    let prevRev = p.rev0, pvSum = 0;
+    for (let t = 1; t <= 5; t++) {
+      const f = (t - 1) / 4;
+      const growth = (p.g1 + (p.g5 - p.g1) * f) / 100;
+      const margin = (p.m1 + (p.m5 - p.m1) * f) / 100;
+      const rev = prevRev * (1 + growth);
+      const ebit = rev * margin;
+      const tax = ebit * (p.tax / 100);
+      const nopat = ebit - tax;
+      const da = rev * p.da / 100;
+      const capex = rev * p.capex / 100;
+      const dNwc = (rev - prevRev) * p.nwc / 100;
+      const fcf = nopat + da - capex - dNwc;
+      const period = p.midyear ? t - 0.5 : t;
+      const df = 1 / Math.pow(1 + wacc, period);
+      const pv = fcf * df;
+      pvSum += pv;
+      years.push({ t, rev, growth, ebit, margin, tax, nopat, da, capex, dNwc, fcf, period, df, pv, ebitda: ebit + da });
+      prevRev = rev;
+    }
+    const last = years[4];
+    let tv, tvPeriod, cross;
+    if (p.tvMethod === "gordon") {
+      const g = tvParam;
+      if (wacc <= g) return { error: "WACC must be higher than terminal growth, otherwise the perpetuity has no finite value." };
+      tv = last.fcf * (1 + g) / (wacc - g);
+      tvPeriod = p.midyear ? 4.5 : 5;
+      cross = { label: "Implied exit multiple", value: tv / last.ebitda, fmt: "mult" };
+    } else {
+      tv = last.ebitda * tvParam;
+      tvPeriod = 5;
+      const g = (tv * wacc - last.fcf) / (tv + last.fcf);
+      cross = { label: "Implied perpetual growth", value: g, fmt: "pct" };
+    }
+    const pvTv = tv / Math.pow(1 + wacc, tvPeriod);
+    const ev = pvSum + pvTv;
+    const equity = ev - p.debt;
+    const perShare = p.shares > 0 ? equity / p.shares : NaN;
+    return { years, tv, pvTv, pvSum, ev, equity, perShare, cross, tvPeriod };
+  }
+
+  const fmtM = (v) => (v < 0 ? "(" : "") + Math.abs(v).toLocaleString("en-US", { maximumFractionDigits: 1, minimumFractionDigits: 1 }) + (v < 0 ? ")" : "");
+  const fmtMoney = (v) => "$" + v.toLocaleString("en-US", { maximumFractionDigits: 0 }) + "M";
+  const fmtPrice = (v) => (v < 0 ? "−$" : "$") + Math.abs(v).toFixed(2);
+  const fmtPct = (v, d = 1) => (v * 100).toFixed(d) + "%";
+
+  function render() {
+    const r = model(state);
+    const err = $("err");
+    if (r.error) {
+      err.textContent = r.error; err.hidden = false;
+      $("headline").hidden = true;
+      return;
+    }
+    err.hidden = true; $("headline").hidden = false;
+
+    $("outPrice").textContent = isFinite(r.perShare) ? fmtPrice(r.perShare) : "–";
+    const chip = $("outUpside");
+    if (state.price > 0 && isFinite(r.perShare)) {
+      const up = r.perShare / state.price - 1;
+      chip.textContent = `${up >= 0 ? "▲" : "▼"} ${fmtPct(Math.abs(up))} ${up >= 0 ? "upside" : "downside"} vs ${fmtPrice(state.price)}`;
+      chip.className = "chip " + (up >= 0 ? "up" : "down");
+    } else { chip.textContent = "Add a current price to see upside"; chip.className = "chip"; }
+
+    $("outEV").textContent = fmtMoney(r.ev);
+    $("outEq").textContent = fmtMoney(r.equity);
+    $("crossLabel").textContent = r.cross.label;
+    $("outCross").textContent = r.cross.fmt === "mult" ? r.cross.value.toFixed(1) + "×" : fmtPct(r.cross.value, 2);
+    const tvShare = r.pvTv / r.ev;
+    $("outTVShare").textContent = fmtPct(tvShare, 0);
+
+    // EV composition
+    const a = Math.max(r.pvSum, 0), b = Math.max(r.pvTv, 0), tot = a + b || 1;
+    $("bar1").style.flex = String(a / tot); $("bar2").style.flex = String(b / tot);
+    $("bar1").title = `PV of forecast cash flow: ${fmtMoney(r.pvSum)} (${fmtPct(a / tot, 0)})`;
+    $("bar2").title = `PV of terminal value: ${fmtMoney(r.pvTv)} (${fmtPct(b / tot, 0)})`;
+    $("bar").setAttribute("aria-label", `Enterprise value ${fmtMoney(r.ev)}: ${fmtPct(a / tot, 0)} from forecast cash flow, ${fmtPct(b / tot, 0)} from terminal value`);
+    $("leg1").textContent = `${fmtMoney(r.pvSum)} · ${fmtPct(a / tot, 0)}`;
+    $("leg2").textContent = `${fmtMoney(r.pvTv)} · ${fmtPct(b / tot, 0)}`;
+    $("tvNote").textContent = tvShare > 0.75
+      ? `The terminal value carries ${fmtPct(tvShare, 0)} of the valuation, so the answer leans heavily on the long-run assumption. Check the sensitivity grid before trusting the point estimate.`
+      : `The terminal value carries ${fmtPct(tvShare, 0)} of the valuation. Undiscounted terminal value: ${fmtMoney(r.tv)}.`;
+
+    renderProjection(r);
+    renderSensitivity(r);
+    document.title = "DCF Valuation Playground";
+  }
+
+  function renderProjection(r) {
+    const y = r.years;
+    const head = `<thead><tr><th style="text-align:left">${escapeHtml(state.name)}</th><th>Year 0</th>${y.map((d) => `<th>Year ${d.t}</th>`).join("")}</tr></thead>`;
+    const row = (label, vals, cls = "", base = "") => `<tr class="${cls}"><th>${label}</th><td>${base}</td>${vals.map((v) => `<td>${v}</td>`).join("")}</tr>`;
+    const body = [
+      row("Revenue", y.map((d) => fmtM(d.rev)), "", `<span class="in">${fmtM(state.rev0)}</span>`),
+      row("growth", y.map((d) => fmtPct(d.growth)), "sub"),
+      row("EBIT", y.map((d) => fmtM(d.ebit))),
+      row("margin", y.map((d) => fmtPct(d.margin)), "sub"),
+      row("Less: taxes", y.map((d) => fmtM(-d.tax))),
+      row("NOPAT", y.map((d) => fmtM(d.nopat))),
+      row("Plus: D&amp;A", y.map((d) => fmtM(d.da))),
+      row("Less: capex", y.map((d) => fmtM(-d.capex))),
+      row("Less: increase in NWC", y.map((d) => fmtM(-d.dNwc))),
+      row("Unlevered free cash flow", y.map((d) => fmtM(d.fcf)), "total"),
+      row("discount period", y.map((d) => d.period.toFixed(1)), "sub"),
+      row("discount factor", y.map((d) => d.df.toFixed(3)), "sub"),
+      row("Present value", y.map((d) => fmtM(d.pv)), "total"),
+    ].join("");
+    $("proj").innerHTML = head + `<tbody>${body}</tbody>`;
+    $("proj").querySelectorAll("span.in").forEach((s) => { s.parentElement.classList.add("in"); });
+  }
+
+  function renderSensitivity(base) {
+    const gordon = state.tvMethod === "gordon";
+    const waccs = [-1, -0.5, 0, 0.5, 1].map((d) => state.wacc + d);
+    const cols = gordon ? [-1, -0.5, 0, 0.5, 1].map((d) => state.tg + d) : [-2, -1, 0, 1, 2].map((d) => state.mult + d);
+    $("sensAxis").textContent = gordon ? "Terminal growth →" : "Exit EV / EBITDA →";
+    const ref = state.price > 0 ? state.price : base.perShare;
+    const colLabel = (c) => gordon ? c.toFixed(2) + "%" : c.toFixed(1) + "×";
+    let html = `<thead><tr><th style="text-align:right">WACC ↓</th>${cols.map((c) => `<th>${colLabel(c)}</th>`).join("")}</tr></thead><tbody>`;
+    waccs.forEach((w, ri) => {
+      html += `<tr><th>${w.toFixed(2)}%</th>`;
+      cols.forEach((c, ci) => {
+        const r = model(state, w / 100, gordon ? c / 100 : c);
+        const isBase = ri === 2 && ci === 2;
+        if (r.error || !isFinite(r.perShare)) { html += `<td title="WACC at or below growth">n/a</td>`; return; }
+        const rel = r.perShare / ref - 1;
+        const strength = Math.min(Math.abs(rel) / 0.5, 1) * 60; // full colour at ±50%
+        const pole = rel >= 0 ? "var(--up)" : "var(--down)";
+        const bg = `color-mix(in oklab, ${pole} ${strength.toFixed(0)}%, var(--mid))`;
+        const tip = `WACC ${w.toFixed(2)}%, ${gordon ? "growth" : "multiple"} ${colLabel(c)}: ${fmtPrice(r.perShare)} (${rel >= 0 ? "+" : "−"}${fmtPct(Math.abs(rel))} vs ${state.price > 0 ? "current price" : "base case"})`;
+        html += `<td class="${isBase ? "base" : ""}" style="background:${bg}" title="${tip}">${fmtPrice(r.perShare)}</td>`;
+      });
+      html += `</tr>`;
+    });
+    $("sens").innerHTML = html + `</tbody>`;
+  }
+
+  function escapeHtml(s) { return String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
+
+  $("form").addEventListener("input", (e) => {
+    const id = e.target.id;
+    if (id === "name") state.name = e.target.value;
+    else if (id === "midyear") state.midyear = e.target.checked;
+    else if (NUM_FIELDS.includes(id)) {
+      const v = parseFloat(e.target.value);
+      if (!isFinite(v)) return; // keep the last valid value while the user is mid-edit
+      state[id] = v;
+    }
+    save(); render();
+  });
+  $("form").addEventListener("submit", (e) => e.preventDefault());
+  $("tvGordon").addEventListener("click", () => setMethod("gordon"));
+  $("tvExit").addEventListener("click", () => setMethod("exit"));
+  $("reset").addEventListener("click", () => { state = { ...SAMPLE }; save(); fillForm(); render(); });
+
+  fillForm();
+  render();
+})();
+</script>
+</body>
+</html>

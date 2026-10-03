@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fitness Tracker</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>Fitness Tracker</h1>
+    <p class="subtitle">Log workouts, track your weight, hit your weekly goal.</p>
+  </header>
+
+  <main>
+    <!-- ============ STATS ============ -->
+    <section class="card">
+      <h2>This week</h2>
+      <div class="stats">
+        <div class="stat">
+          <span class="stat-value" id="stat-week">0</span>
+          <span class="stat-label">workouts</span>
+        </div>
+        <div class="stat">
+          <span class="stat-value" id="stat-minutes">0</span>
+          <span class="stat-label">active minutes</span>
+        </div>
+        <div class="stat">
+          <span class="stat-value" id="stat-streak">0</span>
+          <span class="stat-label">day streak</span>
+        </div>
+      </div>
+
+      <div class="goal">
+        <div class="goal-row">
+          <label for="goal-input">Weekly goal</label>
+          <input type="number" id="goal-input" min="1" max="14" value="3">
+          <span class="muted" id="goal-text">0 of 3</span>
+        </div>
+        <div class="progress"><div class="progress-bar" id="goal-bar"></div></div>
+      </div>
+
+      <h3>Last 7 days</h3>
+      <div class="week-chart" id="week-chart"></div>
+    </section>
+
+    <!-- ============ LOG A WORKOUT ============ -->
+    <section class="card">
+      <h2>Log a workout</h2>
+      <form id="workout-form">
+        <div class="field-row">
+          <label>Date
+            <input type="date" id="w-date" required>
+          </label>
+          <label>Exercise
+            <input type="text" id="w-exercise" placeholder="e.g. Squats, Running" required>
+          </label>
+        </div>
+
+        <div class="type-toggle">
+          <label><input type="radio" name="w-type" value="strength" checked> Strength</label>
+          <label><input type="radio" name="w-type" value="cardio"> Cardio</label>
+        </div>
+
+        <!-- Shown for strength workouts -->
+        <div class="field-row" id="strength-fields">
+          <label>Sets <input type="number" id="w-sets" min="1" placeholder="3"></label>
+          <label>Reps <input type="number" id="w-reps" min="1" placeholder="10"></label>
+          <label>Weight (kg) <input type="number" id="w-weight" min="0" step="0.5" placeholder="optional"></label>
+        </div>
+
+        <div class="field-row">
+          <label>Minutes <input type="number" id="w-minutes" min="1" placeholder="30"></label>
+          <label>Notes <input type="text" id="w-notes" placeholder="optional"></label>
+        </div>
+
+        <button type="submit">Add workout</button>
+      </form>
+    </section>
+
+    <!-- ============ HISTORY ============ -->
+    <section class="card">
+      <h2>Workout history</h2>
+      <ul class="list" id="workout-list"></ul>
+      <p class="empty" id="workout-empty">No workouts yet. Log your first one above!</p>
+    </section>
+
+    <!-- ============ BODY WEIGHT ============ -->
+    <section class="card">
+      <h2>Body weight</h2>
+      <form id="weight-form" class="field-row">
+        <label>Date <input type="date" id="bw-date" required></label>
+        <label>Weight (kg) <input type="number" id="bw-value" min="20" max="400" step="0.1" required></label>
+        <button type="submit">Save</button>
+      </form>
+      <svg id="weight-chart" class="weight-chart" viewBox="0 0 600 200" preserveAspectRatio="none"></svg>
+      <ul class="list" id="weight-list"></ul>
+      <p class="empty" id="weight-empty">No weigh-ins yet.</p>
+    </section>
+  </main>
+
+  <footer>
+    <p class="muted">Your data is saved in this browser only.</p>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>

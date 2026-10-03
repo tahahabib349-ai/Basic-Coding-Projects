@@ -6,269 +6,325 @@
 <title>DCF Valuation Playground</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@600;800&family=Public+Sans:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
 <style>
-/* Layout: an analyst's model sheet. Assumptions panel on the left, outputs flowing down the right; stacks on phones. */
+/* Layout: a trading-desk terminal. Ticker bar on top, a dense assumptions rail on the left, a tiled grid of chart and table panels on the right. Dark by design. */
 :root {
-  --bg: #f3f4f1;          /* page ground, faint green-grey */
-  --surface: #ffffff;     /* panels and tables */
-  --ink: #18201c;         /* formulas and text (black, per model convention) */
-  --muted: #5f6b64;
-  --rule: #dde1dc;
-  --input: #1b4fd1;       /* hard-coded inputs are blue, per model convention */
-  --input-bg: #f1f5ff;
-  --s1: #2b62b8;          /* PV of forecast cash flows */
-  --s2: #c2711a;          /* PV of terminal value */
-  --up: #2f6fdb;          /* sensitivity: above current price */
-  --down: #d4493b;        /* sensitivity: below current price */
-  --mid: #f0efec;         /* sensitivity: neutral */
-  --error: #b3261e;
-  --font-display: "Schibsted Grotesk", "Helvetica Neue", Arial, sans-serif;
-  --font-body: "Public Sans", "Segoe UI", system-ui, sans-serif;
-}
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --bg: #101412; --surface: #161b1f; --ink: #e4e9e5; --muted: #98a39c; --rule: #2a322e;
-    --input: #8db0ff; --input-bg: #1a2335; --s1: #5b8fe0; --s2: #c97d22;
-    --up: #4d86e8; --down: #e0604f; --mid: #383835; --error: #ff8a80;
-    color-scheme: dark;
-  }
-}
-:root[data-theme="dark"] {
-  --bg: #101412; --surface: #161b1f; --ink: #e4e9e5; --muted: #98a39c; --rule: #2a322e;
-  --input: #8db0ff; --input-bg: #1a2335; --s1: #5b8fe0; --s2: #c97d22;
-  --up: #4d86e8; --down: #e0604f; --mid: #383835; --error: #ff8a80;
+  --bg: #0b0e11;
+  --panel: #12161b;
+  --panel-2: #181d23;
+  --rule: #232a31;
+  --fg: #d7dde3;
+  --muted: #7d8893;
+  --faint: #4a545e;
+  --amber: #f0a830;        /* editable inputs, current price */
+  --amber-bg: #1e1a10;
+  --s1: #26a69a;           /* series 1: teal */
+  --s2: #7e6ee0;           /* series 2: violet */
+  --up: #26a69a;
+  --down: #e5534b;
+  --total: #9aa5b1;
+  --mid: #262c33;
+  --font-ui: "IBM Plex Sans Condensed", "Arial Narrow", "Roboto Condensed", system-ui, sans-serif;
+  --font-num: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   color-scheme: dark;
 }
 
+html { background: var(--bg); }
 body {
   background: var(--bg);
-  color: var(--ink);
-  font-family: var(--font-body);
+  color: var(--fg);
+  font-family: var(--font-ui);
   font-size: 14px;
-  line-height: 1.5;
+  line-height: 1.45;
   padding-inline: 16px;
 }
-.page { max-width: 1240px; margin-inline: auto; padding-block: 24px 40px; display: grid; gap: 20px; }
-.num { font-variant-numeric: tabular-nums; }
 [hidden] { display: none !important; }
+.mono { font-family: var(--font-num); font-variant-numeric: tabular-nums; }
+.page { max-width: 1480px; margin-inline: auto; padding-block: 16px 32px; display: grid; gap: 12px; }
 
-header { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 8px 24px; }
-h1 {
-  font-family: var(--font-display); font-weight: 800; letter-spacing: -0.025em;
-  font-size: clamp(1.6rem, 3.6vw, 2.4rem); line-height: 1.05; margin: 0; text-wrap: balance;
+/* Ticker bar */
+.ticker {
+  display: flex; flex-wrap: wrap; align-items: stretch; gap: 0;
+  background: var(--panel); border: 1px solid var(--rule); border-radius: 4px; overflow: hidden;
 }
-.sub { margin: 6px 0 0; color: var(--muted); max-width: 62ch; }
-.key { display: flex; gap: 14px; font-size: 12.5px; color: var(--muted); }
-.key span::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
-.key .k-in::before { background: var(--input); }
-.key .k-calc::before { background: var(--ink); }
-
-.layout { display: grid; grid-template-columns: 340px minmax(0, 1fr); gap: 20px; align-items: start; }
-@media (max-width: 880px) { .layout { grid-template-columns: minmax(0, 1fr); } }
-
-.panel { background: var(--surface); border: 1px solid var(--rule); border-radius: 8px; padding: 18px; min-width: 0; }
-h2 {
-  font-family: var(--font-display); font-weight: 600; font-size: 13px; text-transform: uppercase;
-  letter-spacing: 0.08em; color: var(--muted); margin: 0 0 12px;
+.brand { padding: 12px 18px; border-right: 1px solid var(--rule); display: grid; align-content: center; gap: 2px; min-width: 0; }
+.brand .sym { font-family: var(--font-num); font-weight: 700; font-size: 18px; letter-spacing: 0.02em; color: var(--amber); }
+.brand .sym small { color: var(--muted); font-weight: 400; font-size: 12px; margin-left: 6px; }
+.brand h1 { margin: 0; font-size: 12px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); }
+.stats { display: flex; flex-wrap: wrap; flex: 1; min-width: 0; }
+.stat { padding: 10px 18px; border-right: 1px solid var(--rule); display: grid; gap: 2px; align-content: center; }
+.stat:last-child { border-right: 0; }
+.stat dt { font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); }
+.stat dd { margin: 0; font-family: var(--font-num); font-size: 17px; font-weight: 500; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.stat.hero dd { font-size: 26px; font-weight: 700; line-height: 1.1; }
+.delta.up { color: var(--up); }
+.delta.down { color: var(--down); }
+.price-in { color: var(--amber); }
+@media (max-width: 700px) {
+  .brand { border-right: 0; border-bottom: 1px solid var(--rule); flex-basis: 100%; }
+  .stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .stat { min-width: 0; border-bottom: 1px solid var(--rule); }
+  .stat:nth-child(odd) { border-right: 1px solid var(--rule); }
+  .stat:nth-child(even) { border-right: 0; }
+  .stat.hero { grid-column: 1 / -1; border-right: 0; }
+  .stat dt { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 }
 
-/* Assumptions */
-.assumptions { display: grid; gap: 18px; }
-fieldset { border: 0; margin: 0; padding: 0; display: grid; gap: 8px; }
-legend { font-family: var(--font-display); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); padding: 0; margin-bottom: 8px; }
-.field { display: grid; grid-template-columns: minmax(0, 1fr) 140px; align-items: center; gap: 10px; }
-.field label { color: var(--ink); }
-.field small { display: block; color: var(--muted); font-size: 11.5px; line-height: 1.3; }
-.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
-.pair .inbox input { padding-right: 20px; }
-.pair .inbox::after { right: 6px; }
-.inbox { position: relative; }
-.inbox input {
-  width: 100%; box-sizing: border-box; font: 500 14px var(--font-body); font-variant-numeric: tabular-nums;
-  color: var(--input); background: var(--input-bg); border: 1px solid transparent; border-radius: 5px;
-  padding: 6px 26px 6px 8px; text-align: right;
+/* Main grid */
+.layout { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 12px; align-items: start; }
+@media (max-width: 960px) { .layout { grid-template-columns: minmax(0, 1fr); } }
+.tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; min-width: 0; }
+.tiles .wide { grid-column: 1 / -1; }
+@media (max-width: 1240px) { .tiles { grid-template-columns: minmax(0, 1fr); } }
+
+.panel { background: var(--panel); border: 1px solid var(--rule); border-radius: 4px; min-width: 0; }
+.ph {
+  display: flex; justify-content: space-between; align-items: center; gap: 12px;
+  padding: 8px 14px; border-bottom: 1px solid var(--rule); background: var(--panel-2);
 }
-.inbox.no-unit input { padding-right: 8px; }
-.inbox::after { content: attr(data-unit); position: absolute; right: 8px; top: 50%; transform: translateY(-50%); color: var(--muted); font-size: 12px; pointer-events: none; }
-.inbox input:hover { border-color: var(--rule); }
-input:focus-visible, button:focus-visible, select:focus-visible { outline: 2px solid var(--input); outline-offset: 1px; }
-.seg { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid var(--rule); border-radius: 6px; overflow: hidden; }
-.seg button { font: 500 13px var(--font-body); padding: 7px 6px; border: 0; background: transparent; color: var(--muted); cursor: pointer; }
-.seg button[aria-pressed="true"] { background: var(--ink); color: var(--surface); }
-.check { display: flex; align-items: center; gap: 8px; cursor: pointer; }
-.check input { accent-color: var(--input); width: 16px; height: 16px; }
-.reset { font: 500 13px var(--font-body); color: var(--muted); background: transparent; border: 1px solid var(--rule); border-radius: 6px; padding: 7px 10px; cursor: pointer; justify-self: start; }
-.reset:hover { color: var(--ink); border-color: var(--muted); }
+.ph h2 { margin: 0; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.12em; }
+.ph .meta { font-size: 11.5px; color: var(--muted); text-align: right; }
+.pb { padding: 12px 14px 14px; }
 
-/* Outputs */
-.outputs { display: grid; gap: 20px; min-width: 0; }
-.headline { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 2fr); gap: 24px; align-items: center; }
-@media (max-width: 620px) { .headline { grid-template-columns: minmax(0, 1fr); } }
-.price-label { color: var(--muted); font-size: 13px; }
-.price { font-family: var(--font-display); font-weight: 800; font-size: clamp(2.6rem, 6vw, 3.6rem); letter-spacing: -0.03em; line-height: 1; margin: 4px 0 10px; }
-.chip { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; font-size: 13px; padding: 3px 10px; border-radius: 999px; background: var(--mid); }
-.chip.up { background: color-mix(in oklab, var(--up) 22%, var(--surface)); }
-.chip.down { background: color-mix(in oklab, var(--down) 22%, var(--surface)); }
-.facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 20px; margin: 0; }
-.facts div { border-top: 1px solid var(--rule); padding-top: 8px; }
-.facts dt { color: var(--muted); font-size: 12.5px; }
-.facts dd { margin: 0; font-weight: 600; font-size: 16px; font-variant-numeric: tabular-nums; }
-.error { color: var(--error); font-weight: 600; margin: 0; }
+/* Assumptions rail */
+.rail .pb { display: grid; gap: 16px; }
+fieldset { border: 0; margin: 0; padding: 0; display: grid; gap: 2px; }
+legend {
+  font-size: 11px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted);
+  padding: 0 0 6px; width: 100%; border-bottom: 1px solid var(--rule); margin-bottom: 6px;
+}
+.row { display: grid; grid-template-columns: minmax(0, 1fr) 92px; align-items: center; gap: 8px; min-height: 30px; }
+.row.two { grid-template-columns: minmax(0, 1fr) 62px 62px; }
+.row > label, .row > span.lbl { color: var(--fg); font-size: 13.5px; line-height: 1.2; }
+.row small { display: block; color: var(--muted); font-size: 11px; }
+.cell { position: relative; }
+.cell input {
+  width: 100%; box-sizing: border-box; height: 28px;
+  font: 500 13px var(--font-num); font-variant-numeric: tabular-nums;
+  color: var(--amber); background: var(--amber-bg);
+  border: 1px solid transparent; border-radius: 3px; padding: 0 22px 0 6px; text-align: right;
+}
+.cell.text input { text-align: left; padding-right: 6px; }
+.cell::after {
+  content: attr(data-unit); position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+  color: var(--faint); font: 11px var(--font-num); pointer-events: none;
+}
+.cell input:hover { border-color: var(--rule); }
+input:focus-visible, button:focus-visible { outline: 1px solid var(--amber); outline-offset: 1px; }
+.colhead { display: grid; grid-template-columns: minmax(0, 1fr) 62px 62px; gap: 8px; font: 10.5px var(--font-num); color: var(--muted); text-align: right; }
+.seg { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid var(--rule); border-radius: 3px; margin-block: 4px; }
+.seg button {
+  font: 600 11.5px var(--font-ui); text-transform: uppercase; letter-spacing: 0.08em;
+  padding: 7px 4px; border: 0; background: transparent; color: var(--muted); cursor: pointer;
+}
+.seg button[aria-pressed="true"] { background: var(--amber); color: var(--bg); }
+.check { display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13.5px; min-height: 30px; }
+.check input { accent-color: var(--amber); width: 15px; height: 15px; margin: 0; }
+.reset {
+  font: 600 11.5px var(--font-ui); text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--muted); background: transparent; border: 1px solid var(--rule); border-radius: 3px; padding: 8px 10px; cursor: pointer;
+}
+.reset:hover { color: var(--fg); border-color: var(--muted); }
+.error { margin: 0; padding: 10px 14px; border: 1px solid var(--down); border-radius: 4px; color: var(--down); background: color-mix(in oklab, var(--down) 10%, var(--bg)); font-weight: 600; }
 
-/* EV composition bar */
-.bar { display: flex; gap: 2px; height: 28px; margin: 6px 0 10px; }
-.bar div { min-width: 2px; position: relative; cursor: default; }
-.bar div:first-child { border-radius: 4px 0 0 4px; }
-.bar div:last-child { border-radius: 0 4px 4px 0; }
-.bar .s1 { background: var(--s1); }
-.bar .s2 { background: var(--s2); }
-.legend { display: flex; flex-wrap: wrap; gap: 6px 22px; font-size: 13px; }
-.legend span::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
-.legend .l1::before { background: var(--s1); }
-.legend .l2::before { background: var(--s2); }
-.legend b { font-weight: 600; font-variant-numeric: tabular-nums; }
-.note { color: var(--muted); font-size: 12.5px; margin: 10px 0 0; max-width: 72ch; }
+/* Charts */
+.chart { width: 100%; display: block; }
+.chart text { font-family: var(--font-num); font-size: 11px; fill: var(--muted); }
+.chart .lbl { fill: var(--fg); }
+.chart .lbl-strong { fill: var(--fg); font-weight: 700; }
+.chart .cat { font-family: var(--font-ui); font-size: 12.5px; fill: var(--fg); }
+.chart .cat-sub { font-family: var(--font-ui); font-size: 11px; fill: var(--muted); }
+.chart .grid { stroke: var(--rule); stroke-width: 1; }
+.chart .base { stroke: var(--faint); stroke-width: 1; }
+.chart [data-tip] { cursor: default; }
+.chart .hit { fill: transparent; }
+.chart .hit:hover + .mark, .chart .mark:hover { filter: brightness(1.25); }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 18px; font-size: 12px; color: var(--muted); margin-top: 8px; }
+.legend span::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; background: var(--c); }
+.legend .line::before { height: 2px; width: 14px; vertical-align: 3px; border-radius: 0; }
+.note { font-size: 12px; color: var(--muted); margin: 8px 0 0; max-width: 80ch; }
+.note.warn { color: var(--amber); }
 
 /* Tables */
 .scroll { overflow-x: auto; }
-table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
-th, td { padding: 6px 10px; text-align: right; white-space: nowrap; }
-thead th { font-weight: 600; color: var(--muted); font-size: 12.5px; border-bottom: 1px solid var(--ink); }
-tbody th { text-align: left; font-weight: 500; }
-tbody tr + tr th, tbody tr + tr td { border-top: 1px solid var(--rule); }
-tr.sub th, tr.sub td { color: var(--muted); font-size: 12.5px; border-top: 0 !important; padding-top: 0; }
-tr.total th, tr.total td { font-weight: 600; border-top: 1px solid var(--ink) !important; }
-td.in { color: var(--input); }
+table { border-collapse: collapse; width: 100%; font-family: var(--font-num); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+th, td { padding: 5px 8px; text-align: right; white-space: nowrap; }
+thead th { font-weight: 500; color: var(--muted); font-size: 11px; border-bottom: 1px solid var(--faint); text-transform: uppercase; letter-spacing: 0.06em; }
+tbody th { text-align: left; font-family: var(--font-ui); font-weight: 500; font-size: 13px; }
+tbody tr:hover { background: var(--panel-2); }
+tr.sub th, tr.sub td { color: var(--muted); font-size: 11.5px; }
+tr.sub th { padding-left: 18px; }
+tr.total th, tr.total td { font-weight: 700; border-top: 1px solid var(--faint); }
+td.in { color: var(--amber); }
+td.neg { color: var(--down); }
 
-.sens-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 6px 16px; margin-bottom: 10px; }
-.sens-head h2 { margin: 0; }
-.scale { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); }
-.scale i { display: block; width: 120px; height: 10px; border-radius: 2px; background: linear-gradient(90deg, color-mix(in oklab, var(--down) 60%, var(--mid)), var(--mid), color-mix(in oklab, var(--up) 60%, var(--mid))); }
-table.sens { table-layout: fixed; min-width: 420px; }
-table.sens td { text-align: center; padding: 9px 6px; border: 2px solid var(--surface) !important; border-radius: 4px; }
-table.sens tbody th { text-align: right; color: var(--muted); font-weight: 600; font-size: 12.5px; }
+table.sens { table-layout: fixed; min-width: 380px; }
+table.sens td { text-align: center; padding: 8px 4px; border: 2px solid var(--panel); color: var(--fg); }
+table.sens tbody th { text-align: right; font-family: var(--font-num); color: var(--muted); font-size: 11.5px; }
 table.sens thead th { text-align: center; border-bottom: 0; }
-table.sens td.base { outline: 2px solid var(--ink); outline-offset: -2px; font-weight: 700; }
-.axis-x { text-align: center; color: var(--muted); font-size: 12px; margin: 0 0 4px; }
-footer { color: var(--muted); font-size: 12.5px; max-width: 80ch; }
-footer p { margin: 0 0 6px; }
+table.sens td.basec { outline: 1px solid var(--amber); outline-offset: -2px; font-weight: 700; }
+table.sens tbody tr:hover { background: transparent; }
+.scale { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--muted); }
+.scale i { display: block; width: 90px; height: 8px; border-radius: 1px; background: linear-gradient(90deg, color-mix(in oklab, var(--down) 70%, var(--mid)), var(--mid), color-mix(in oklab, var(--up) 70%, var(--mid))); }
+
+#tip {
+  position: fixed; z-index: 10; pointer-events: none; max-width: 260px;
+  background: var(--panel-2); border: 1px solid var(--faint); border-radius: 3px;
+  padding: 6px 9px; font: 12px/1.4 var(--font-num); color: var(--fg); box-shadow: 0 6px 18px rgb(0 0 0 / 0.45);
+}
+footer { color: var(--muted); font-size: 12px; max-width: 100ch; }
+footer p { margin: 0 0 4px; }
+@media (prefers-reduced-motion: no-preference) { .chart .mark { transition: filter 120ms; } }
 </style>
 </head>
 <body>
 
 <div class="page">
-  <header>
-    <div>
+  <section class="ticker" aria-label="Valuation summary">
+    <div class="brand">
+      <div class="sym" id="sym">EXMPL<small>SAMPLE CO.</small></div>
       <h1>DCF Valuation Playground</h1>
-      <p class="sub">A five-year unlevered free cash flow model. Change any assumption and every output, including the sensitivity grid, recalculates.</p>
     </div>
-    <div class="key"><span class="k-in">Input</span><span class="k-calc">Calculated</span></div>
-  </header>
+    <dl class="stats">
+      <div class="stat hero"><dt>Implied value / share</dt><dd id="kPrice">–</dd></div>
+      <div class="stat"><dt>Current price</dt><dd class="price-in" id="kCur">–</dd></div>
+      <div class="stat"><dt>Upside</dt><dd class="delta" id="kUp">–</dd></div>
+      <div class="stat"><dt>Enterprise value</dt><dd id="kEV">–</dd></div>
+      <div class="stat"><dt id="kCrossL">Implied exit mult.</dt><dd id="kCross">–</dd></div>
+      <div class="stat"><dt>TV % of EV</dt><dd id="kTV">–</dd></div>
+    </dl>
+  </section>
+
+  <p class="error" id="err" role="alert" hidden></p>
 
   <div class="layout">
-    <form class="panel assumptions" id="form" autocomplete="off">
-      <fieldset>
-        <legend>Company</legend>
-        <div class="field"><label for="name">Name</label><div class="inbox no-unit"><input id="name" type="text" style="text-align:left"></div></div>
-        <div class="field"><label for="rev0">Last-year revenue<small>$ millions</small></label><div class="inbox" data-unit="$M"><input id="rev0" type="number" step="10" min="0"></div></div>
-      </fieldset>
+    <form class="panel rail" id="form" autocomplete="off">
+      <div class="ph"><h2>Assumptions</h2><span class="meta">amber = input</span></div>
+      <div class="pb">
+        <fieldset>
+          <legend>Company</legend>
+          <div class="row"><label for="ticker">Ticker</label><div class="cell text"><input id="ticker" type="text" maxlength="8"></div></div>
+          <div class="row"><label for="name">Name</label><div class="cell text"><input id="name" type="text" maxlength="40"></div></div>
+          <div class="row"><label for="rev0">LTM revenue</label><div class="cell" data-unit="M"><input id="rev0" type="number" step="10" min="0"></div></div>
+        </fieldset>
 
-      <fieldset>
-        <legend>Operations, year 1 → year 5</legend>
-        <div class="field"><label>Revenue growth<small>fades linearly between years</small></label>
-          <div class="pair"><div class="inbox" data-unit="%"><input id="g1" type="number" step="0.5" aria-label="Revenue growth, year 1"></div><div class="inbox" data-unit="%"><input id="g5" type="number" step="0.5" aria-label="Revenue growth, year 5"></div></div></div>
-        <div class="field"><label>EBIT margin</label>
-          <div class="pair"><div class="inbox" data-unit="%"><input id="m1" type="number" step="0.5" aria-label="EBIT margin, year 1"></div><div class="inbox" data-unit="%"><input id="m5" type="number" step="0.5" aria-label="EBIT margin, year 5"></div></div></div>
-        <div class="field"><label for="tax">Tax rate</label><div class="inbox" data-unit="%"><input id="tax" type="number" step="0.5" min="0" max="100"></div></div>
-        <div class="field"><label for="da">D&amp;A<small>% of revenue</small></label><div class="inbox" data-unit="%"><input id="da" type="number" step="0.5" min="0"></div></div>
-        <div class="field"><label for="capex">Capex<small>% of revenue</small></label><div class="inbox" data-unit="%"><input id="capex" type="number" step="0.5" min="0"></div></div>
-        <div class="field"><label for="nwc">Net working capital<small>% of revenue change</small></label><div class="inbox" data-unit="%"><input id="nwc" type="number" step="1"></div></div>
-      </fieldset>
+        <fieldset>
+          <legend>Operating model</legend>
+          <div class="colhead"><span></span><span>YR 1</span><span>YR 5</span></div>
+          <div class="row two"><span class="lbl">Revenue growth</span>
+            <div class="cell" data-unit="%"><input id="g1" type="number" step="0.5" aria-label="Revenue growth, year 1"></div>
+            <div class="cell" data-unit="%"><input id="g5" type="number" step="0.5" aria-label="Revenue growth, year 5"></div></div>
+          <div class="row two"><span class="lbl">EBIT margin</span>
+            <div class="cell" data-unit="%"><input id="m1" type="number" step="0.5" aria-label="EBIT margin, year 1"></div>
+            <div class="cell" data-unit="%"><input id="m5" type="number" step="0.5" aria-label="EBIT margin, year 5"></div></div>
+          <div class="row"><label for="tax">Tax rate</label><div class="cell" data-unit="%"><input id="tax" type="number" step="0.5" min="0" max="100"></div></div>
+          <div class="row"><label for="da">D&amp;A <small>% of revenue</small></label><div class="cell" data-unit="%"><input id="da" type="number" step="0.5" min="0"></div></div>
+          <div class="row"><label for="capex">Capex <small>% of revenue</small></label><div class="cell" data-unit="%"><input id="capex" type="number" step="0.5" min="0"></div></div>
+          <div class="row"><label for="nwc">Net working capital <small>% of Δ revenue</small></label><div class="cell" data-unit="%"><input id="nwc" type="number" step="1"></div></div>
+        </fieldset>
 
-      <fieldset>
-        <legend>Discounting &amp; terminal value</legend>
-        <div class="field"><label for="wacc">WACC</label><div class="inbox" data-unit="%"><input id="wacc" type="number" step="0.25" min="0"></div></div>
-        <div class="seg" role="group" aria-label="Terminal value method">
-          <button type="button" id="tvGordon" aria-pressed="true">Perpetuity growth</button>
-          <button type="button" id="tvExit" aria-pressed="false">Exit multiple</button>
-        </div>
-        <div class="field" id="rowTg"><label for="tg">Terminal growth</label><div class="inbox" data-unit="%"><input id="tg" type="number" step="0.25"></div></div>
-        <div class="field" id="rowMult" hidden><label for="mult">Exit EV / EBITDA</label><div class="inbox" data-unit="×"><input id="mult" type="number" step="0.5" min="0"></div></div>
-        <label class="check"><input id="midyear" type="checkbox"> Mid-year convention</label>
-      </fieldset>
+        <fieldset>
+          <legend>Discounting</legend>
+          <div class="row"><label for="wacc">WACC</label><div class="cell" data-unit="%"><input id="wacc" type="number" step="0.25" min="0"></div></div>
+          <div class="seg" role="group" aria-label="Terminal value method">
+            <button type="button" id="tvGordon" aria-pressed="true">Perpetuity</button>
+            <button type="button" id="tvExit" aria-pressed="false">Exit multiple</button>
+          </div>
+          <div class="row" id="rowTg"><label for="tg">Terminal growth</label><div class="cell" data-unit="%"><input id="tg" type="number" step="0.25"></div></div>
+          <div class="row" id="rowMult" hidden><label for="mult">Exit EV / EBITDA</label><div class="cell" data-unit="x"><input id="mult" type="number" step="0.5" min="0"></div></div>
+          <label class="check"><input id="midyear" type="checkbox"> Mid-year convention</label>
+        </fieldset>
 
-      <fieldset>
-        <legend>Equity bridge</legend>
-        <div class="field"><label for="debt">Net debt<small>negative if net cash</small></label><div class="inbox" data-unit="$M"><input id="debt" type="number" step="10"></div></div>
-        <div class="field"><label for="shares">Diluted shares</label><div class="inbox" data-unit="M"><input id="shares" type="number" step="1" min="0"></div></div>
-        <div class="field"><label for="price">Current share price</label><div class="inbox" data-unit="$"><input id="price" type="number" step="0.5" min="0"></div></div>
-      </fieldset>
+        <fieldset>
+          <legend>Equity bridge</legend>
+          <div class="row"><label for="debt">Net debt <small>negative = net cash</small></label><div class="cell" data-unit="M"><input id="debt" type="number" step="10"></div></div>
+          <div class="row"><label for="shares">Diluted shares</label><div class="cell" data-unit="M"><input id="shares" type="number" step="1" min="0"></div></div>
+          <div class="row"><label for="price">Current price</label><div class="cell" data-unit="$"><input id="price" type="number" step="0.5" min="0"></div></div>
+        </fieldset>
 
-      <button type="button" class="reset" id="reset">Reset to sample company</button>
+        <fieldset>
+          <legend>Football field ranges</legend>
+          <div class="colhead"><span></span><span>LOW</span><span>HIGH</span></div>
+          <div class="row two"><span class="lbl">52-week range</span>
+            <div class="cell" data-unit="$"><input id="wkLo" type="number" step="0.5" aria-label="52-week low"></div>
+            <div class="cell" data-unit="$"><input id="wkHi" type="number" step="0.5" aria-label="52-week high"></div></div>
+          <div class="row two"><span class="lbl">Peer EV / EBITDA <small>applied to year-1 EBITDA</small></span>
+            <div class="cell" data-unit="x"><input id="compLo" type="number" step="0.5" aria-label="Peer EV/EBITDA low"></div>
+            <div class="cell" data-unit="x"><input id="compHi" type="number" step="0.5" aria-label="Peer EV/EBITDA high"></div></div>
+        </fieldset>
+
+        <button type="button" class="reset" id="reset">Reset to sample company</button>
+      </div>
     </form>
 
-    <div class="outputs">
-      <section class="panel" aria-labelledby="h-val">
-        <h2 id="h-val">Valuation</h2>
-        <p class="error" id="err" hidden></p>
-        <div class="headline" id="headline">
-          <div>
-            <div class="price-label">Implied value per share</div>
-            <div class="price num" id="outPrice">–</div>
-            <span class="chip" id="outUpside">–</span>
+    <div class="tiles">
+      <section class="panel wide" aria-labelledby="h-ff">
+        <div class="ph"><h2 id="h-ff">Football field</h2><span class="meta">implied value per share, $</span></div>
+        <div class="pb">
+          <svg class="chart" id="ff" role="img" aria-labelledby="h-ff"></svg>
+          <div class="legend">
+            <span style="--c: var(--s1)">Valuation range</span>
+            <span style="--c: var(--fg)">◆ DCF base case</span>
+            <span class="line" style="--c: var(--amber)">Current price</span>
           </div>
-          <dl class="facts">
-            <div><dt>Enterprise value</dt><dd id="outEV">–</dd></div>
-            <div><dt>Equity value</dt><dd id="outEq">–</dd></div>
-            <div><dt id="crossLabel">Implied exit multiple</dt><dd id="outCross">–</dd></div>
-            <div><dt>Terminal value share of EV</dt><dd id="outTVShare">–</dd></div>
-          </dl>
         </div>
       </section>
 
-      <section class="panel" aria-labelledby="h-comp">
-        <h2 id="h-comp">Where the enterprise value comes from</h2>
-        <div class="bar" id="bar" role="img"><div class="s1" id="bar1"></div><div class="s2" id="bar2"></div></div>
-        <div class="legend"><span class="l1">PV of years 1–5 cash flow <b id="leg1">–</b></span><span class="l2">PV of terminal value <b id="leg2">–</b></span></div>
-        <p class="note" id="tvNote"></p>
+      <section class="panel" aria-labelledby="h-fcf">
+        <div class="ph"><h2 id="h-fcf">Free cash flow</h2><span class="meta">$M by forecast year</span></div>
+        <div class="pb">
+          <svg class="chart" id="fcf" role="img" aria-labelledby="h-fcf"></svg>
+          <div class="legend">
+            <span style="--c: var(--s1)">Unlevered FCF</span>
+            <span style="--c: var(--s2)">Present value</span>
+          </div>
+        </div>
       </section>
 
-      <section class="panel" aria-labelledby="h-proj">
-        <h2 id="h-proj">Free cash flow forecast ($M)</h2>
-        <div class="scroll"><table id="proj"></table></div>
+      <section class="panel" aria-labelledby="h-br">
+        <div class="ph"><h2 id="h-br">EV to equity bridge</h2><span class="meta">$M</span></div>
+        <div class="pb">
+          <svg class="chart" id="bridge" role="img" aria-labelledby="h-br"></svg>
+          <p class="note" id="tvNote"></p>
+        </div>
       </section>
 
       <section class="panel" aria-labelledby="h-sens">
-        <div class="sens-head">
-          <h2 id="h-sens">Sensitivity: value per share</h2>
-          <div class="scale"><span>Below current price</span><i></i><span>Above</span></div>
+        <div class="ph"><h2 id="h-sens">Sensitivity</h2><div class="scale"><span>below px</span><i></i><span>above</span></div></div>
+        <div class="pb">
+          <div class="scroll"><table class="sens" id="sens"></table></div>
+          <p class="note">Value per share. Rows vary WACC, columns vary <span id="sensAxis">terminal growth</span>. Outlined cell is the base case.</p>
         </div>
-        <p class="axis-x" id="sensAxis">Terminal growth</p>
-        <div class="scroll"><table class="sens" id="sens"></table></div>
-        <p class="note">Rows vary WACC; columns vary the terminal assumption. The outlined cell is your base case.</p>
+      </section>
+
+      <section class="panel" aria-labelledby="h-proj">
+        <div class="ph"><h2 id="h-proj">Forecast</h2><span class="meta">$M</span></div>
+        <div class="pb"><div class="scroll"><table id="proj"></table></div></div>
       </section>
     </div>
   </div>
 
   <footer>
-    <p>Unlevered free cash flow = EBIT × (1 − tax) + D&amp;A − capex − increase in net working capital. Terminal value uses the Gordon growth formula on year-6 cash flow, or an EV/EBITDA multiple on year-5 EBITDA.</p>
-    <p>With the mid-year convention, forecast cash flows are discounted at t − 0.5. A perpetuity-growth terminal value is discounted at 4.5 years, an exit-multiple terminal value at 5 years. Sample figures are illustrative and describe no real company.</p>
+    <p>Unlevered FCF = EBIT × (1 − tax) + D&amp;A − capex − Δ net working capital. Perpetuity TV = FCF₆ / (WACC − g); exit TV = EBITDA₅ × multiple. With mid-year convention, cash flows discount at t − 0.5, a perpetuity TV at 4.5 years and an exit TV at 5 years.</p>
+    <p>DCF ranges on the football field span WACC ±0.5% and terminal growth ±0.5% (or multiple ±1.0×). Sample figures are illustrative and describe no real company.</p>
   </footer>
 </div>
+<div id="tip" role="tooltip" hidden></div>
 
 <script>
 (() => {
   const SAMPLE = {
-    name: "Example Co. (sample)", rev0: 1000, g1: 12, g5: 5, m1: 18, m5: 22, tax: 25, da: 4, capex: 5, nwc: 10,
-    wacc: 9, tvMethod: "gordon", tg: 2.5, mult: 12, midyear: true, debt: 500, shares: 100, price: 30
+    ticker: "EXMPL", name: "Sample Co.", rev0: 1000, g1: 12, g5: 5, m1: 18, m5: 22, tax: 25, da: 4, capex: 5, nwc: 10,
+    wacc: 9, tvMethod: "gordon", tg: 2.5, mult: 12, midyear: true, debt: 500, shares: 100, price: 30,
+    wkLo: 22, wkHi: 36, compLo: 9, compHi: 13
   };
-  const NUM_FIELDS = ["rev0", "g1", "g5", "m1", "m5", "tax", "da", "capex", "nwc", "wacc", "tg", "mult", "debt", "shares", "price"];
-  const STORE = "dcf-playground-v1";
+  const NUM = ["rev0", "g1", "g5", "m1", "m5", "tax", "da", "capex", "nwc", "wacc", "tg", "mult", "debt", "shares", "price", "wkLo", "wkHi", "compLo", "compHi"];
+  const STORE = "dcf-playground-v2";
   const $ = (id) => document.getElementById(id);
+  const SVGNS = "http://www.w3.org/2000/svg";
 
   let state = load();
-
   function load() {
     try {
       const saved = JSON.parse(localStorage.getItem(STORE) || "null");
@@ -278,13 +334,330 @@ footer p { margin: 0 0 6px; }
   }
   function save() { try { localStorage.setItem(STORE, JSON.stringify(state)); } catch (_) {} }
 
+  // ---------- Model ----------
+  // Percent inputs arrive as whole numbers (12 = 12%). tvParam is a decimal growth rate or an EV/EBITDA multiple.
+  function model(p, wacc = p.wacc / 100, tvParam = p.tvMethod === "gordon" ? p.tg / 100 : p.mult, method = p.tvMethod) {
+    const years = [];
+    let prev = p.rev0, pvSum = 0;
+    for (let t = 1; t <= 5; t++) {
+      const f = (t - 1) / 4;
+      const growth = (p.g1 + (p.g5 - p.g1) * f) / 100;
+      const margin = (p.m1 + (p.m5 - p.m1) * f) / 100;
+      const rev = prev * (1 + growth);
+      const ebit = rev * margin;
+      const tax = ebit * p.tax / 100;
+      const nopat = ebit - tax;
+      const da = rev * p.da / 100;
+      const capex = rev * p.capex / 100;
+      const dNwc = (rev - prev) * p.nwc / 100;
+      const fcf = nopat + da - capex - dNwc;
+      const period = p.midyear ? t - 0.5 : t;
+      const df = 1 / Math.pow(1 + wacc, period);
+      const pv = fcf * df;
+      pvSum += pv;
+      years.push({ t, rev, growth, ebit, margin, tax, nopat, da, capex, dNwc, fcf, period, df, pv, ebitda: ebit + da });
+      prev = rev;
+    }
+    const last = years[4];
+    let tv, tvPeriod, cross;
+    if (method === "gordon") {
+      if (wacc <= tvParam) return { error: "WACC must be higher than terminal growth. Otherwise the perpetuity never converges to a finite value." };
+      tv = last.fcf * (1 + tvParam) / (wacc - tvParam);
+      tvPeriod = p.midyear ? 4.5 : 5;
+      cross = { label: "Implied exit mult.", text: (tv / last.ebitda).toFixed(1) + "x" };
+    } else {
+      tv = last.ebitda * tvParam;
+      tvPeriod = 5;
+      cross = { label: "Implied perp. growth", text: (((tv * wacc - last.fcf) / (tv + last.fcf)) * 100).toFixed(2) + "%" };
+    }
+    const pvTv = tv / Math.pow(1 + wacc, tvPeriod);
+    const ev = pvSum + pvTv;
+    const equity = ev - p.debt;
+    const perShare = p.shares > 0 ? equity / p.shares : NaN;
+    return { years, tv, pvTv, pvSum, ev, equity, perShare, cross };
+  }
+
+  // Range of per-share values over WACC ±0.5% and the terminal input ±step.
+  function dcfRange(method) {
+    const vals = [];
+    const centre = method === "gordon" ? state.tg / 100 : state.mult;
+    const step = method === "gordon" ? 0.005 : 1;
+    for (const dw of [-0.005, 0, 0.005]) for (const dt of [-step, 0, step]) {
+      const r = model(state, state.wacc / 100 + dw, centre + dt, method);
+      if (!r.error && isFinite(r.perShare)) vals.push(r.perShare);
+    }
+    const base = model(state, state.wacc / 100, centre, method);
+    return vals.length ? { lo: Math.min(...vals), hi: Math.max(...vals), base: base.error ? null : base.perShare } : null;
+  }
+
+  // ---------- Formatting ----------
+  const fM = (v) => (v < 0 ? "(" : "") + Math.abs(v).toLocaleString("en-US", { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + (v < 0 ? ")" : "");
+  const fBig = (v) => (v < 0 ? "−" : "") + "$" + Math.abs(v).toLocaleString("en-US", { maximumFractionDigits: 0 }) + "M";
+  const fPx = (v) => (v < 0 ? "−$" : "$") + Math.abs(v).toFixed(2);
+  const fPct = (v, d = 1) => (v * 100).toFixed(d) + "%";
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+  // ---------- SVG helpers ----------
+  function el(tag, attrs = {}, text) {
+    const n = document.createElementNS(SVGNS, tag);
+    for (const k in attrs) n.setAttribute(k, attrs[k]);
+    if (text != null) n.textContent = text;
+    return n;
+  }
+  function niceTicks(lo, hi, count = 5) {
+    const span = hi - lo || 1;
+    const raw = span / count;
+    const mag = Math.pow(10, Math.floor(Math.log10(raw)));
+    const step = [1, 2, 2.5, 5, 10].map((m) => m * mag).find((s) => s >= raw);
+    const start = Math.floor(lo / step) * step, end = Math.ceil(hi / step) * step;
+    const ticks = [];
+    for (let v = start; v <= end + step / 2; v += step) ticks.push(+v.toFixed(10));
+    return ticks;
+  }
+  // A rect whose data end (away from baseline) is rounded 3px and baseline end square.
+  function barPath(x, y, w, h, dir) { // dir: "up" | "down" | "right"
+    const r = Math.min(3, Math.abs(w) / 2, Math.abs(h) / 2);
+    if (dir === "right") return `M${x},${y} h${w - r} q${r},0 ${r},${r} v${h - 2 * r} q0,${r} ${-r},${r} h${-(w - r)} z`;
+    if (dir === "up") return `M${x},${y + h} v${-(h - r)} q0,${-r} ${r},${-r} h${w - 2 * r} q${r},0 ${r},${r} v${h - r} z`;
+    return `M${x},${y} v${h - r} q0,${r} ${r},${r} h${w - 2 * r} q${r},0 ${r},${-r} v${-(h - r)} z`;
+  }
+  const widthOf = (svg) => Math.max(280, Math.floor(svg.getBoundingClientRect().width));
+
+  // ---------- Charts ----------
+  function drawFootball() {
+    const svg = $("ff"); svg.replaceChildren();
+    const W = widthOf(svg), compact = W < 560, rowH = compact ? 58 : 40, top = 8, labelW = compact ? 0 : 190, right = compact ? 4 : 20;
+    const rows = [];
+    if (state.wkHi > 0) rows.push({ name: "52-week trading range", sub: "market", lo: Math.min(state.wkLo, state.wkHi), hi: Math.max(state.wkLo, state.wkHi) });
+    const ebitda1 = model(state).years?.[0]?.ebitda;
+    if (ebitda1 && state.shares > 0) {
+      const px = (m) => (m * ebitda1 - state.debt) / state.shares;
+      rows.push({ name: "Trading comps", sub: `${Math.min(state.compLo, state.compHi)}–${Math.max(state.compLo, state.compHi)}x yr-1 EBITDA`, lo: px(Math.min(state.compLo, state.compHi)), hi: px(Math.max(state.compLo, state.compHi)) });
+    }
+    const g = dcfRange("gordon"), x = dcfRange("exit");
+    if (g) rows.push({ name: "DCF · perpetuity", sub: `g ${(state.tg - 0.5).toFixed(1)}–${(state.tg + 0.5).toFixed(1)}%`, ...g, active: state.tvMethod === "gordon" });
+    if (x) rows.push({ name: "DCF · exit multiple", sub: `${(state.mult - 1).toFixed(1)}–${(state.mult + 1).toFixed(1)}x EBITDA`, ...x, active: state.tvMethod === "exit" });
+
+    const H = top + rows.length * rowH + 36;
+    svg.setAttribute("viewBox", `0 0 ${W} ${H}`); svg.setAttribute("height", H);
+    const all = rows.flatMap((r) => [r.lo, r.hi]).concat(state.price > 0 ? [state.price] : []);
+    const ticks = niceTicks(Math.min(0, ...all) < 0 ? Math.min(...all) : Math.min(...all) * 0.85, Math.max(...all) * 1.05, W < 520 ? 4 : 7);
+    const x0 = labelW, x1 = W - right, lo = ticks[0], hi = ticks[ticks.length - 1];
+    const sx = (v) => x0 + (v - lo) / (hi - lo) * (x1 - x0);
+    const plotBottom = top + rows.length * rowH;
+
+    ticks.forEach((t, i) => {
+      const anchor = i === 0 ? "start" : i === ticks.length - 1 ? "end" : "middle";
+      svg.append(el("line", { class: "grid", x1: sx(t), x2: sx(t), y1: top, y2: plotBottom }));
+      svg.append(el("text", { x: sx(t), y: plotBottom + 16, "text-anchor": anchor }, "$" + t));
+    });
+
+    rows.forEach((r, i) => {
+      const cy = top + i * rowH + (compact ? 36 : rowH / 2);
+      if (compact) {
+        svg.append(el("text", { class: "cat", x: 0, y: cy - 16 }, r.name));
+        svg.append(el("text", { class: "cat-sub", x: W - right, y: cy - 16, "text-anchor": "end" }, r.sub));
+      } else {
+        svg.append(el("text", { class: "cat", x: 0, y: cy - 2 }, r.name));
+        svg.append(el("text", { class: "cat-sub", x: 0, y: cy + 12 }, r.sub));
+      }
+      const bx = sx(r.lo), bw = Math.max(2, sx(r.hi) - sx(r.lo)), bh = 16;
+      const tip = `${r.name}\nLow ${fPx(r.lo)} · High ${fPx(r.hi)}${r.base != null ? `\nBase ${fPx(r.base)}` : ""}`;
+      svg.append(el("rect", { class: "hit", x: bx - 4, y: cy - rowH / 2 + 2, width: bw + 8, height: rowH - 4, "data-tip": tip }));
+      svg.append(el("rect", { class: "mark", x: bx, y: cy - bh / 2, width: bw, height: bh, rx: 3, fill: "var(--s1)", "fill-opacity": r.active === false ? 0.55 : 1, "data-tip": tip }));
+      const loLabel = el("text", { class: "lbl", x: bx - 6, y: cy + 4, "text-anchor": "end" }, fPx(r.lo).replace(".00", ""));
+      const hiLabel = el("text", { class: "lbl", x: bx + bw + 6, y: cy + 4 }, fPx(r.hi).replace(".00", ""));
+      if (!compact && bx - 6 - 44 > x0) svg.append(loLabel);
+      if (!compact && bx + bw + 50 < W) svg.append(hiLabel);
+      if (r.base != null) {
+        const mx = sx(r.base);
+        svg.append(el("path", { d: `M${mx},${cy - 7} l6,7 l-6,7 l-6,-7 z`, fill: "var(--fg)", stroke: "var(--panel)", "stroke-width": 2, "data-tip": tip }));
+      }
+    });
+
+    if (state.price > 0) {
+      const px = sx(state.price);
+      svg.append(el("line", { x1: px, x2: px, y1: top - 4, y2: plotBottom, stroke: "var(--amber)", "stroke-width": 2, "stroke-dasharray": "4 3" }));
+      const t = el("text", { x: px, y: plotBottom + 28, "text-anchor": "middle", fill: "var(--amber)", style: "fill: var(--amber); font-weight: 700" }, `px ${fPx(state.price)}`);
+      svg.append(t);
+    }
+  }
+
+  function drawFcf(r) {
+    const svg = $("fcf"); svg.replaceChildren();
+    const W = widthOf(svg), H = 230, top = 18, bottom = 26, left = 44, right = 8;
+    svg.setAttribute("viewBox", `0 0 ${W} ${H}`); svg.setAttribute("height", H);
+    const vals = r.years.flatMap((y) => [y.fcf, y.pv]);
+    const ticks = niceTicks(Math.min(0, ...vals), Math.max(0, ...vals), 4);
+    const lo = ticks[0], hi = ticks[ticks.length - 1];
+    const sy = (v) => top + (hi - v) / (hi - lo) * (H - top - bottom);
+    ticks.forEach((t) => {
+      svg.append(el("line", { class: t === 0 ? "base" : "grid", x1: left, x2: W - right, y1: sy(t), y2: sy(t) }));
+      svg.append(el("text", { x: left - 6, y: sy(t) + 4, "text-anchor": "end" }, t.toLocaleString("en-US")));
+    });
+    const band = (W - left - right) / r.years.length;
+    const bw = Math.min(26, band * 0.32);
+    r.years.forEach((y, i) => {
+      const cx = left + band * i + band / 2;
+      const tip = `Year ${y.t}\nUnlevered FCF ${fM(y.fcf)}\nPresent value ${fM(y.pv)}\nDiscount factor ${y.df.toFixed(3)}`;
+      svg.append(el("rect", { class: "hit", x: cx - band / 2, y: top, width: band, height: H - top - bottom, "data-tip": tip }));
+      [[y.fcf, "var(--s1)", cx - bw - 1], [y.pv, "var(--s2)", cx + 1]].forEach(([v, c, x]) => {
+        const y0 = sy(0), y1 = sy(v), h = Math.max(1, Math.abs(y0 - y1));
+        svg.append(el("path", { class: "mark", d: barPath(x, Math.min(y0, y1), bw, h, v >= 0 ? "up" : "down"), fill: c, "data-tip": tip }));
+      });
+      svg.append(el("text", { x: cx, y: H - 8, "text-anchor": "middle" }, `Y${y.t}`));
+      if (i === r.years.length - 1 || i === 0) {
+        svg.append(el("text", { class: "lbl", x: cx - bw / 2 - 1, y: sy(Math.max(y.fcf, 0)) - 5, "text-anchor": "middle" }, Math.round(y.fcf)));
+      }
+    });
+  }
+
+  function drawBridge(r) {
+    const svg = $("bridge"); svg.replaceChildren();
+    const W = widthOf(svg), H = 230, top = 22, bottom = 26, left = 52, right = 8;
+    svg.setAttribute("viewBox", `0 0 ${W} ${H}`); svg.setAttribute("height", H);
+    const steps = [
+      { name: "PV FCF", from: 0, to: r.pvSum, kind: "inc" },
+      { name: "PV TV", from: r.pvSum, to: r.ev, kind: "inc" },
+      { name: "EV", from: 0, to: r.ev, kind: "total" },
+      { name: state.debt >= 0 ? "Net debt" : "Net cash", from: r.ev, to: r.equity, kind: state.debt >= 0 ? "dec" : "inc" },
+      { name: "Equity", from: 0, to: r.equity, kind: "total" },
+    ];
+    const vals = steps.flatMap((s) => [s.from, s.to]);
+    const ticks = niceTicks(Math.min(0, ...vals), Math.max(...vals), 4);
+    const lo = ticks[0], hi = ticks[ticks.length - 1];
+    const sy = (v) => top + (hi - v) / (hi - lo) * (H - top - bottom);
+    ticks.forEach((t) => {
+      svg.append(el("line", { class: t === 0 ? "base" : "grid", x1: left, x2: W - right, y1: sy(t), y2: sy(t) }));
+      svg.append(el("text", { x: left - 6, y: sy(t) + 4, "text-anchor": "end" }, t.toLocaleString("en-US")));
+    });
+    const band = (W - left - right) / steps.length, bw = Math.min(56, band * 0.62);
+    const color = { inc: "var(--up)", dec: "var(--down)", total: "var(--total)" };
+    steps.forEach((s, i) => {
+      const x = left + band * i + (band - bw) / 2;
+      const yTop = sy(Math.max(s.from, s.to)), yBot = sy(Math.min(s.from, s.to));
+      const delta = s.to - s.from;
+      const tip = `${s.name}\n${s.kind === "total" ? fBig(s.to) : (delta >= 0 ? "+" : "−") + fBig(Math.abs(delta)).replace("−", "")}${s.kind === "total" && s.name === "Equity" && state.shares > 0 ? `\n÷ ${state.shares}M shares = ${fPx(r.perShare)}` : ""}`;
+      svg.append(el("rect", { class: "hit", x: left + band * i, y: top, width: band, height: H - top - bottom, "data-tip": tip }));
+      svg.append(el("rect", { class: "mark", x, y: yTop, width: bw, height: Math.max(1, yBot - yTop), rx: 2, fill: color[s.kind], "data-tip": tip }));
+      if (i < steps.length - 1) {
+        const level = s.to;
+        svg.append(el("line", { x1: x + bw, x2: x + band, y1: sy(level), y2: sy(level), stroke: "var(--faint)", "stroke-dasharray": "2 2" }));
+      }
+      const label = s.kind === "total" ? Math.round(s.to).toLocaleString("en-US") : (delta >= 0 ? "+" : "−") + Math.round(Math.abs(delta)).toLocaleString("en-US");
+      svg.append(el("text", { class: s.kind === "total" ? "lbl-strong" : "lbl", x: x + bw / 2, y: yTop - 6, "text-anchor": "middle" }, label));
+      svg.append(el("text", { x: x + bw / 2, y: H - 8, "text-anchor": "middle" }, s.name));
+    });
+  }
+
+  // ---------- Tables ----------
+  function renderProjection(r) {
+    const y = r.years;
+    const head = `<thead><tr><th style="text-align:left">${esc(state.ticker || "—")}</th><th>Y0</th>${y.map((d) => `<th>Y${d.t}</th>`).join("")}</tr></thead>`;
+    const row = (label, vals, cls = "", base = "") => `<tr class="${cls}"><th>${label}</th>${base}${vals.map((v) => `<td${v.startsWith("(") && cls !== "sub" ? ' class="neg"' : ""}>${v}</td>`).join("")}</tr>`;
+    const empty = "<td></td>";
+    $("proj").innerHTML = head + "<tbody>" + [
+      row("Revenue", y.map((d) => fM(d.rev)), "", `<td class="in">${fM(state.rev0)}</td>`),
+      row("growth", y.map((d) => fPct(d.growth)), "sub", empty),
+      row("EBIT", y.map((d) => fM(d.ebit)), "", empty),
+      row("margin", y.map((d) => fPct(d.margin)), "sub", empty),
+      row("Taxes", y.map((d) => fM(-d.tax)), "", empty),
+      row("NOPAT", y.map((d) => fM(d.nopat)), "", empty),
+      row("D&amp;A", y.map((d) => fM(d.da)), "", empty),
+      row("Capex", y.map((d) => fM(-d.capex)), "", empty),
+      row("Δ NWC", y.map((d) => fM(-d.dNwc)), "", empty),
+      row("Unlevered FCF", y.map((d) => fM(d.fcf)), "total", empty),
+      row("discount factor", y.map((d) => d.df.toFixed(3)), "sub", empty),
+      row("Present value", y.map((d) => fM(d.pv)), "total", empty),
+    ].join("") + "</tbody>";
+  }
+
+  function renderSensitivity(base) {
+    const gordon = state.tvMethod === "gordon";
+    const waccs = [-1, -0.5, 0, 0.5, 1].map((d) => state.wacc + d);
+    const cols = gordon ? [-1, -0.5, 0, 0.5, 1].map((d) => state.tg + d) : [-2, -1, 0, 1, 2].map((d) => state.mult + d);
+    $("sensAxis").textContent = gordon ? "terminal growth" : "exit EV/EBITDA";
+    const ref = state.price > 0 ? state.price : base.perShare;
+    const cl = (c) => gordon ? c.toFixed(1) + "%" : c.toFixed(1) + "x";
+    let html = `<thead><tr><th style="text-align:right">WACC</th>${cols.map((c) => `<th>${cl(c)}</th>`).join("")}</tr></thead><tbody>`;
+    waccs.forEach((w, ri) => {
+      html += `<tr><th>${w.toFixed(2)}%</th>`;
+      cols.forEach((c, ci) => {
+        const r = model(state, w / 100, gordon ? c / 100 : c);
+        if (r.error || !isFinite(r.perShare)) { html += `<td data-tip="WACC at or below growth: no finite value">n/a</td>`; return; }
+        const rel = r.perShare / ref - 1;
+        const strength = Math.min(Math.abs(rel) / 0.5, 1) * 70;
+        const bg = `color-mix(in oklab, ${rel >= 0 ? "var(--up)" : "var(--down)"} ${strength.toFixed(0)}%, var(--mid))`;
+        const tip = `WACC ${w.toFixed(2)}% · ${gordon ? "g" : "multiple"} ${cl(c)}\n${fPx(r.perShare)} (${rel >= 0 ? "+" : "−"}${fPct(Math.abs(rel))} vs ${state.price > 0 ? "price" : "base"})`;
+        html += `<td class="${ri === 2 && ci === 2 ? "basec" : ""}" style="background:${bg}" data-tip="${tip}">${fPx(r.perShare).replace("$", "")}</td>`;
+      });
+      html += "</tr>";
+    });
+    $("sens").innerHTML = html + "</tbody>";
+  }
+
+  // ---------- Render ----------
+  function render() {
+    $("sym").innerHTML = `${esc(state.ticker || "—")}<small>${esc(state.name).toUpperCase()}</small>`;
+    $("kCur").textContent = state.price > 0 ? fPx(state.price) : "–";
+    const r = model(state);
+    const err = $("err");
+    if (r.error) {
+      err.textContent = r.error; err.hidden = false;
+      ["kPrice", "kUp", "kEV", "kCross", "kTV"].forEach((k) => { $(k).textContent = "–"; });
+      return;
+    }
+    err.hidden = true;
+
+    $("kPrice").textContent = isFinite(r.perShare) ? fPx(r.perShare) : "–";
+    const up = $("kUp");
+    if (state.price > 0 && isFinite(r.perShare)) {
+      const d = r.perShare / state.price - 1;
+      up.textContent = `${d >= 0 ? "▲ +" : "▼ −"}${fPct(Math.abs(d))}`;
+      up.className = "delta " + (d >= 0 ? "up" : "down");
+    } else { up.textContent = "–"; up.className = "delta"; }
+    $("kEV").textContent = fBig(r.ev);
+    $("kCrossL").textContent = r.cross.label;
+    $("kCross").textContent = r.cross.text;
+    const tvShare = r.pvTv / r.ev;
+    $("kTV").textContent = fPct(tvShare, 0);
+
+    const note = $("tvNote");
+    note.textContent = tvShare > 0.75
+      ? `Terminal value is ${fPct(tvShare, 0)} of EV. The answer leans on the long-run assumption, so read the sensitivity grid before the point estimate.`
+      : `Terminal value is ${fPct(tvShare, 0)} of EV. Undiscounted TV: ${fBig(r.tv)}.`;
+    note.className = "note" + (tvShare > 0.75 ? " warn" : "");
+
+    drawFootball();
+    drawFcf(r);
+    drawBridge(r);
+    renderProjection(r);
+    renderSensitivity(r);
+  }
+
+  // ---------- Tooltip ----------
+  const tip = $("tip");
+  document.addEventListener("pointermove", (e) => {
+    const t = e.target.closest?.("[data-tip]");
+    if (!t) { tip.hidden = true; return; }
+    tip.innerHTML = esc(t.getAttribute("data-tip")).replace(/\n/g, "<br>");
+    tip.hidden = false;
+    const pad = 14, w = tip.offsetWidth, h = tip.offsetHeight;
+    let x = e.clientX + pad, y = e.clientY + pad;
+    if (x + w > innerWidth - 8) x = e.clientX - w - pad;
+    if (y + h > innerHeight - 8) y = e.clientY - h - pad;
+    tip.style.left = Math.max(8, x) + "px"; tip.style.top = Math.max(8, y) + "px";
+  });
+  document.addEventListener("pointerleave", () => { tip.hidden = true; });
+  window.addEventListener("scroll", () => { tip.hidden = true; }, { passive: true });
+
+  // ---------- Inputs ----------
   function fillForm() {
-    $("name").value = state.name;
-    NUM_FIELDS.forEach((k) => { $(k).value = state[k]; });
+    $("ticker").value = state.ticker; $("name").value = state.name;
+    NUM.forEach((k) => { $(k).value = state[k]; });
     $("midyear").checked = state.midyear;
     setMethod(state.tvMethod, false);
   }
-
   function setMethod(m, rerender = true) {
     state.tvMethod = m;
     $("tvGordon").setAttribute("aria-pressed", String(m === "gordon"));
@@ -293,156 +666,14 @@ footer p { margin: 0 0 6px; }
     $("rowMult").hidden = m !== "exit";
     if (rerender) { save(); render(); }
   }
-
-  // Pure model: inputs in, valuation out. Percent inputs arrive as whole numbers (12 = 12%).
-  function model(p, wacc = p.wacc / 100, tvParam = p.tvMethod === "gordon" ? p.tg / 100 : p.mult) {
-    const years = [];
-    let prevRev = p.rev0, pvSum = 0;
-    for (let t = 1; t <= 5; t++) {
-      const f = (t - 1) / 4;
-      const growth = (p.g1 + (p.g5 - p.g1) * f) / 100;
-      const margin = (p.m1 + (p.m5 - p.m1) * f) / 100;
-      const rev = prevRev * (1 + growth);
-      const ebit = rev * margin;
-      const tax = ebit * (p.tax / 100);
-      const nopat = ebit - tax;
-      const da = rev * p.da / 100;
-      const capex = rev * p.capex / 100;
-      const dNwc = (rev - prevRev) * p.nwc / 100;
-      const fcf = nopat + da - capex - dNwc;
-      const period = p.midyear ? t - 0.5 : t;
-      const df = 1 / Math.pow(1 + wacc, period);
-      const pv = fcf * df;
-      pvSum += pv;
-      years.push({ t, rev, growth, ebit, margin, tax, nopat, da, capex, dNwc, fcf, period, df, pv, ebitda: ebit + da });
-      prevRev = rev;
-    }
-    const last = years[4];
-    let tv, tvPeriod, cross;
-    if (p.tvMethod === "gordon") {
-      const g = tvParam;
-      if (wacc <= g) return { error: "WACC must be higher than terminal growth, otherwise the perpetuity has no finite value." };
-      tv = last.fcf * (1 + g) / (wacc - g);
-      tvPeriod = p.midyear ? 4.5 : 5;
-      cross = { label: "Implied exit multiple", value: tv / last.ebitda, fmt: "mult" };
-    } else {
-      tv = last.ebitda * tvParam;
-      tvPeriod = 5;
-      const g = (tv * wacc - last.fcf) / (tv + last.fcf);
-      cross = { label: "Implied perpetual growth", value: g, fmt: "pct" };
-    }
-    const pvTv = tv / Math.pow(1 + wacc, tvPeriod);
-    const ev = pvSum + pvTv;
-    const equity = ev - p.debt;
-    const perShare = p.shares > 0 ? equity / p.shares : NaN;
-    return { years, tv, pvTv, pvSum, ev, equity, perShare, cross, tvPeriod };
-  }
-
-  const fmtM = (v) => (v < 0 ? "(" : "") + Math.abs(v).toLocaleString("en-US", { maximumFractionDigits: 1, minimumFractionDigits: 1 }) + (v < 0 ? ")" : "");
-  const fmtMoney = (v) => "$" + v.toLocaleString("en-US", { maximumFractionDigits: 0 }) + "M";
-  const fmtPrice = (v) => (v < 0 ? "−$" : "$") + Math.abs(v).toFixed(2);
-  const fmtPct = (v, d = 1) => (v * 100).toFixed(d) + "%";
-
-  function render() {
-    const r = model(state);
-    const err = $("err");
-    if (r.error) {
-      err.textContent = r.error; err.hidden = false;
-      $("headline").hidden = true;
-      return;
-    }
-    err.hidden = true; $("headline").hidden = false;
-
-    $("outPrice").textContent = isFinite(r.perShare) ? fmtPrice(r.perShare) : "–";
-    const chip = $("outUpside");
-    if (state.price > 0 && isFinite(r.perShare)) {
-      const up = r.perShare / state.price - 1;
-      chip.textContent = `${up >= 0 ? "▲" : "▼"} ${fmtPct(Math.abs(up))} ${up >= 0 ? "upside" : "downside"} vs ${fmtPrice(state.price)}`;
-      chip.className = "chip " + (up >= 0 ? "up" : "down");
-    } else { chip.textContent = "Add a current price to see upside"; chip.className = "chip"; }
-
-    $("outEV").textContent = fmtMoney(r.ev);
-    $("outEq").textContent = fmtMoney(r.equity);
-    $("crossLabel").textContent = r.cross.label;
-    $("outCross").textContent = r.cross.fmt === "mult" ? r.cross.value.toFixed(1) + "×" : fmtPct(r.cross.value, 2);
-    const tvShare = r.pvTv / r.ev;
-    $("outTVShare").textContent = fmtPct(tvShare, 0);
-
-    // EV composition
-    const a = Math.max(r.pvSum, 0), b = Math.max(r.pvTv, 0), tot = a + b || 1;
-    $("bar1").style.flex = String(a / tot); $("bar2").style.flex = String(b / tot);
-    $("bar1").title = `PV of forecast cash flow: ${fmtMoney(r.pvSum)} (${fmtPct(a / tot, 0)})`;
-    $("bar2").title = `PV of terminal value: ${fmtMoney(r.pvTv)} (${fmtPct(b / tot, 0)})`;
-    $("bar").setAttribute("aria-label", `Enterprise value ${fmtMoney(r.ev)}: ${fmtPct(a / tot, 0)} from forecast cash flow, ${fmtPct(b / tot, 0)} from terminal value`);
-    $("leg1").textContent = `${fmtMoney(r.pvSum)} · ${fmtPct(a / tot, 0)}`;
-    $("leg2").textContent = `${fmtMoney(r.pvTv)} · ${fmtPct(b / tot, 0)}`;
-    $("tvNote").textContent = tvShare > 0.75
-      ? `The terminal value carries ${fmtPct(tvShare, 0)} of the valuation, so the answer leans heavily on the long-run assumption. Check the sensitivity grid before trusting the point estimate.`
-      : `The terminal value carries ${fmtPct(tvShare, 0)} of the valuation. Undiscounted terminal value: ${fmtMoney(r.tv)}.`;
-
-    renderProjection(r);
-    renderSensitivity(r);
-    document.title = "DCF Valuation Playground";
-  }
-
-  function renderProjection(r) {
-    const y = r.years;
-    const head = `<thead><tr><th style="text-align:left">${escapeHtml(state.name)}</th><th>Year 0</th>${y.map((d) => `<th>Year ${d.t}</th>`).join("")}</tr></thead>`;
-    const row = (label, vals, cls = "", base = "") => `<tr class="${cls}"><th>${label}</th><td>${base}</td>${vals.map((v) => `<td>${v}</td>`).join("")}</tr>`;
-    const body = [
-      row("Revenue", y.map((d) => fmtM(d.rev)), "", `<span class="in">${fmtM(state.rev0)}</span>`),
-      row("growth", y.map((d) => fmtPct(d.growth)), "sub"),
-      row("EBIT", y.map((d) => fmtM(d.ebit))),
-      row("margin", y.map((d) => fmtPct(d.margin)), "sub"),
-      row("Less: taxes", y.map((d) => fmtM(-d.tax))),
-      row("NOPAT", y.map((d) => fmtM(d.nopat))),
-      row("Plus: D&amp;A", y.map((d) => fmtM(d.da))),
-      row("Less: capex", y.map((d) => fmtM(-d.capex))),
-      row("Less: increase in NWC", y.map((d) => fmtM(-d.dNwc))),
-      row("Unlevered free cash flow", y.map((d) => fmtM(d.fcf)), "total"),
-      row("discount period", y.map((d) => d.period.toFixed(1)), "sub"),
-      row("discount factor", y.map((d) => d.df.toFixed(3)), "sub"),
-      row("Present value", y.map((d) => fmtM(d.pv)), "total"),
-    ].join("");
-    $("proj").innerHTML = head + `<tbody>${body}</tbody>`;
-    $("proj").querySelectorAll("span.in").forEach((s) => { s.parentElement.classList.add("in"); });
-  }
-
-  function renderSensitivity(base) {
-    const gordon = state.tvMethod === "gordon";
-    const waccs = [-1, -0.5, 0, 0.5, 1].map((d) => state.wacc + d);
-    const cols = gordon ? [-1, -0.5, 0, 0.5, 1].map((d) => state.tg + d) : [-2, -1, 0, 1, 2].map((d) => state.mult + d);
-    $("sensAxis").textContent = gordon ? "Terminal growth →" : "Exit EV / EBITDA →";
-    const ref = state.price > 0 ? state.price : base.perShare;
-    const colLabel = (c) => gordon ? c.toFixed(2) + "%" : c.toFixed(1) + "×";
-    let html = `<thead><tr><th style="text-align:right">WACC ↓</th>${cols.map((c) => `<th>${colLabel(c)}</th>`).join("")}</tr></thead><tbody>`;
-    waccs.forEach((w, ri) => {
-      html += `<tr><th>${w.toFixed(2)}%</th>`;
-      cols.forEach((c, ci) => {
-        const r = model(state, w / 100, gordon ? c / 100 : c);
-        const isBase = ri === 2 && ci === 2;
-        if (r.error || !isFinite(r.perShare)) { html += `<td title="WACC at or below growth">n/a</td>`; return; }
-        const rel = r.perShare / ref - 1;
-        const strength = Math.min(Math.abs(rel) / 0.5, 1) * 60; // full colour at ±50%
-        const pole = rel >= 0 ? "var(--up)" : "var(--down)";
-        const bg = `color-mix(in oklab, ${pole} ${strength.toFixed(0)}%, var(--mid))`;
-        const tip = `WACC ${w.toFixed(2)}%, ${gordon ? "growth" : "multiple"} ${colLabel(c)}: ${fmtPrice(r.perShare)} (${rel >= 0 ? "+" : "−"}${fmtPct(Math.abs(rel))} vs ${state.price > 0 ? "current price" : "base case"})`;
-        html += `<td class="${isBase ? "base" : ""}" style="background:${bg}" title="${tip}">${fmtPrice(r.perShare)}</td>`;
-      });
-      html += `</tr>`;
-    });
-    $("sens").innerHTML = html + `</tbody>`;
-  }
-
-  function escapeHtml(s) { return String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
-
   $("form").addEventListener("input", (e) => {
     const id = e.target.id;
-    if (id === "name") state.name = e.target.value;
+    if (id === "ticker") state.ticker = e.target.value.toUpperCase();
+    else if (id === "name") state.name = e.target.value;
     else if (id === "midyear") state.midyear = e.target.checked;
-    else if (NUM_FIELDS.includes(id)) {
+    else if (NUM.includes(id)) {
       const v = parseFloat(e.target.value);
-      if (!isFinite(v)) return; // keep the last valid value while the user is mid-edit
+      if (!isFinite(v)) return; // keep the last valid value while mid-edit
       state[id] = v;
     }
     save(); render();
@@ -451,6 +682,9 @@ footer p { margin: 0 0 6px; }
   $("tvGordon").addEventListener("click", () => setMethod("gordon"));
   $("tvExit").addEventListener("click", () => setMethod("exit"));
   $("reset").addEventListener("click", () => { state = { ...SAMPLE }; save(); fillForm(); render(); });
+
+  let raf = 0;
+  new ResizeObserver(() => { cancelAnimationFrame(raf); raf = requestAnimationFrame(render); }).observe(document.querySelector(".tiles"));
 
   fillForm();
   render();

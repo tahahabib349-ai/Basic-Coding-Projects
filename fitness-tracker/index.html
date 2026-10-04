@@ -71,6 +71,13 @@ h2 { font-size: 1.35rem; text-transform: uppercase; }
 section { display: grid; gap: 12px; }
 .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 16px; display: grid; gap: 12px; }
 .tip { font-size: .92rem; color: var(--muted); margin: 0; }
+textarea { width: 100%; min-width: 0; min-height: 84px; font: .9rem/1.4 ui-monospace, "SF Mono", Menlo, monospace; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--fg); resize: vertical; }
+textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.steps-list { margin: 0; padding-left: 20px; display: grid; gap: 8px; font-size: .92rem; }
+.steps-list code, .code { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: .84rem; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 1px 5px; }
+pre.code { display: block; padding: 10px; overflow-x: auto; white-space: pre; margin: 6px 0 0; }
+.hw { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; padding: 8px 0; border-top: 1px solid var(--line); font-size: .92rem; }
+.hw:first-child { border-top: 0; }
 
 /* Ledger */
 .ledger { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; }
@@ -170,6 +177,39 @@ details li { margin: 3px 0; }
   <!-- TODAY -->
   <main id="tab-today" class="view">
     <div class="card" id="ledger"></div>
+    <div class="card" id="syncCard">
+      <div class="session-head"><div><div class="eyebrow">Apple Health</div><h2>Import today</h2></div><span class="pill" id="lastSync">Never synced</span></div>
+      <label class="field"><span>Run the “Rebirth Sync” Shortcut, then paste here</span><textarea id="healthIn" placeholder="REBIRTH SYNC&#10;date: 2026-10-04&#10;steps: 8423&#10;weight: 99.4 kg&#10;workout: Traditional Strength Training | 3720 | Hevy"></textarea></label>
+      <button class="btn" id="healthBtn">Import</button>
+      <div id="healthOut"></div>
+      <details id="setupGuide">
+        <summary>Set up the Shortcut (one time, ~10 min)</summary>
+        <div style="display:grid;gap:12px;margin-top:10px">
+          <p class="tip"><b>First, in Hevy:</b> Profile → Settings → Integrations → Apple Health → on. Hevy then writes each workout to Health (type, duration, calories). Sets and reps stay in Hevy.</p>
+          <p class="tip"><b>Then in the Shortcuts app:</b> tap +, name it <b>Rebirth Sync</b>, and add these actions in order:</p>
+          <ol class="steps-list">
+            <li><b>Find Health Samples</b> → Type: <code>Steps</code>, filter Start Date <code>is today</code>.</li>
+            <li><b>Calculate Statistics</b> → <code>Sum</code> of the samples. Long-press the result and rename the variable <code>Steps</code>.</li>
+            <li><b>Find Health Samples</b> → Type: <code>Weight</code>, Start Date <code>is today</code>, Sort by Start Date, Latest First, Limit 1. Rename to <code>Weight</code>.</li>
+            <li><b>Find Health Samples</b> → Type: <code>Workouts</code>, Start Date <code>is today</code>.</li>
+            <li><b>Repeat with Each</b> item in those workouts. Inside it, add a <b>Text</b> action:
+              <pre class="code">workout: [Repeat Item › Type] | [Repeat Item › Duration] | [Repeat Item › Source]</pre>
+              Tap the Repeat Item variable to pick each property. If your iOS names them differently, the closest match works.</li>
+            <li>After the repeat, add <b>Format Date</b> → Current Date, Custom format <code>yyyy-MM-dd</code>.</li>
+            <li>Add a <b>Text</b> action, exactly like this, inserting the variables:
+              <pre class="code">REBIRTH SYNC
+date: [Formatted Date]
+steps: [Steps]
+weight: [Weight]
+[Repeat Results]</pre></li>
+            <li><b>Copy to Clipboard</b> (the Text).</li>
+            <li>Optional: <b>Open URLs</b> with this app's link, so it opens ready to paste.</li>
+          </ol>
+          <p class="tip"><b>Make it automatic:</b> Shortcuts → Automation → + → Time of Day, 9:30 pm, Daily, Run Immediately → Run Shortcut “Rebirth Sync”. Then open the app and paste.</p>
+          <p class="tip">The first run asks for Health permission. Allow Steps, Weight and Workouts. Blank values are skipped, so a day with no weigh-in is fine.</p>
+        </div>
+      </details>
+    </div>
     <div class="card" id="sessionCard"></div>
     <section>
       <div class="top"><h2>Daily goals</h2><span class="muted" style="font-size:.85rem" id="goalsHit"></span></div>
@@ -488,6 +528,7 @@ function renderToday() {
     ${d.workout ? '<span class="pill ok">Done</span>' : ""}</div>
     ${adj ? `<div class="alert">${esc(adj.note)}</div>` : ""}
     <div class="ex">${items}</div>
+    ${d.health?.workouts?.length ? `<div><div class="eyebrow" style="margin-bottom:4px">From Apple Health</div>${d.health.workouts.map(w => `<div class="hw"><span>${esc(w.type || "Workout")}${w.source ? ` <span class="muted">· ${esc(w.source)}</span>` : ""}</span><span class="num muted">${w.min != null ? w.min + " min" : ""}</span></div>`).join("")}</div>` : ""}
     ${sess.note ? `<p class="tip">${esc(sess.note)}</p>` : ""}
     <button class="btn ${d.workout ? "done" : ""}" id="doneBtn">${d.workout ? "Logged ✓" : s ? "Finish session" : "Log recovery"}</button>`;
   $("sessionCard").querySelectorAll("input[type=checkbox]").forEach(cb => cb.addEventListener("change", () => {
@@ -616,7 +657,72 @@ function renderPlans() {
   }));
 }
 
-function renderAll() { renderToday(); renderProgress(); renderPlans(); }
+/* ---------- Apple Health import (via the "Rebirth Sync" Shortcut) ---------- */
+function num(str, integer) {
+  let t = String(str).trim().replace(/\s/g, "");
+  if (integer) t = t.replace(/[.,](?=\d{3}(\D|$))/g, ""); // 8,423 / 8.423 → 8423
+  else if (!t.includes(".") && /\d,\d{1,2}(\D|$)/.test(t)) t = t.replace(",", "."); // 99,4 → 99.4
+  else t = t.replace(/,/g, "");
+  const m = t.match(/-?\d+(\.\d+)?/); return m ? parseFloat(m[0]) : null;
+}
+function minutes(str) {
+  const t = String(str).trim(); if (!t) return null;
+  const hms = t.match(/^(\d+):(\d{1,2})(?::(\d{1,2}))?$/);
+  if (hms) return hms[3] != null ? +hms[1] * 60 + +hms[2] + Math.round(+hms[3] / 60) : +hms[1] + Math.round(+hms[2] / 60);
+  let total = 0, found = false;
+  for (const [, v, u] of t.matchAll(/(\d+(?:[.,]\d+)?)\s*(h|hr|hrs|hour|hours|m|min|mins|minute|minutes|s|sec|secs|second|seconds)\b/gi)) {
+    const n = parseFloat(v.replace(",", ".")), U = u.toLowerCase(); found = true;
+    total += U.startsWith("h") ? n * 60 : U.startsWith("s") ? n / 60 : n;
+  }
+  if (found) return Math.round(total);
+  const n = num(t); if (n == null) return null;
+  return Math.round(n > 300 ? n / 60 : n); // bare numbers: seconds if large, else minutes
+}
+function parseHealth(text) {
+  if (!/rebirth\s*sync/i.test(text)) return null;
+  const out = { date: null, steps: null, weight: null, workouts: [] };
+  for (const raw of text.split(/\r?\n/)) {
+    const m = raw.match(/^\s*([a-z]+)\s*:\s*(.*)$/i); if (!m) continue;
+    const key = m[1].toLowerCase(), val = m[2].trim(); if (!val) continue;
+    if (key === "date") {
+      const iso = val.match(/(\d{4})-(\d{1,2})-(\d{1,2})/);
+      if (iso) out.date = iso[1] + "-" + pad(+iso[2]) + "-" + pad(+iso[3]);
+      else { const d = new Date(val); if (!isNaN(d)) out.date = keyOf(d); }
+    } else if (key === "steps") { const n = num(val, true); if (n != null && n >= 0) out.steps = Math.round(n); }
+    else if (key === "weight") {
+      let n = num(val); if (n == null || n <= 0) continue;
+      if (/\b(lb|lbs|pound)/i.test(val)) n = n * 0.45359237;
+      if (n > 30 && n < 300) out.weight = r1(n);
+    } else if (key === "workout") {
+      const [type, dur, source] = val.split("|").map(x => x.trim());
+      out.workouts.push({ type: type || "Workout", min: dur ? minutes(dur) : null, source: source || "" });
+    }
+  }
+  if (!out.date) out.date = todayKey();
+  return out;
+}
+function importHealth(text) {
+  const h = parseHealth(text);
+  if (!h) { $("healthOut").innerHTML = `<div class="alert bad">That doesn't look like Shortcut output. It should start with <span class="code">REBIRTH SYNC</span>. Run the Shortcut, then paste.</div>`; return; }
+  const d = day(h.date), got = [];
+  if (h.steps != null) { d.steps = h.steps; got.push(h.steps.toLocaleString() + " steps"); }
+  if (h.weight != null) { state.weights[h.date] = h.weight; got.push(h.weight + " kg"); }
+  if (h.workouts.length) { d.workout = true; got.push(h.workouts.length + " workout" + (h.workouts.length > 1 ? "s" : "")); }
+  d.health = { at: new Date().toISOString(), workouts: h.workouts };
+  state.lastSync = new Date().toISOString();
+  save(); $("healthIn").value = "";
+  renderAll();
+  $("healthOut").innerHTML = `<p class="tip">${got.length ? "Imported for " + fmtD(h.date) + ": " + esc(got.join(", ")) + "." : "Nothing new in that paste: no steps, weight or workouts for " + fmtD(h.date) + "."}</p>`;
+  toast(got.length ? "Imported from Apple Health." : "Nothing to import.");
+}
+function renderSync() {
+  const el = $("lastSync"); if (!state.lastSync) { el.textContent = "Never synced"; el.className = "pill warn"; return; }
+  const at = new Date(state.lastSync), mins = Math.round((Date.now() - at) / 6e4);
+  el.textContent = "Synced " + (mins < 1 ? "just now" : mins < 60 ? mins + " min ago" : at.toLocaleString(undefined, { weekday: "short", hour: "numeric", minute: "2-digit" }));
+  el.className = "pill " + (mins < 24 * 60 ? "ok" : "warn");
+}
+
+function renderAll() { renderSync(); renderToday(); renderProgress(); renderPlans(); }
 
 /* ---------- Events ---------- */
 document.querySelectorAll(".tabs button").forEach(b => b.addEventListener("click", () => showTab(b.dataset.tab)));
@@ -636,6 +742,13 @@ $("wForm").addEventListener("submit", e => {
   $(id).addEventListener("change", () => { const v = parseFloat($(id).value); if (v >= 0) { state.targets[k] = v; save(); renderToday(); } }));
 [["evNangma","nangma"],["evRakaposhi","rakaposhi"],["evSummit","summit"],["evPeak","peak"]].forEach(([id, k]) =>
   $(id).addEventListener("change", () => { state.events[k] = $(id).value; save(); renderAll(); }));
+$("healthBtn").addEventListener("click", () => importHealth($("healthIn").value));
+// Pasting Shortcut output anywhere on the page imports it straight away.
+document.addEventListener("paste", e => {
+  const t = e.clipboardData?.getData("text") || "";
+  if (!/rebirth\s*sync/i.test(t)) return;
+  e.preventDefault(); showTab("today"); importHealth(t);
+});
 document.addEventListener("visibilitychange", () => { if (!document.hidden) renderToday(); });
 
 try { const t = localStorage.getItem("plate-log-tab"); if (t && $("tab-" + t)) showTab(t); } catch {}

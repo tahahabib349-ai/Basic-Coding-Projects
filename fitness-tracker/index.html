@@ -1,0 +1,485 @@
+<title>Plate Log</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Barlow:wght@400;500;600&display=swap">
+<style>
+/* Layout: one-column phone app shell, max 520px, fixed bottom tab bar; daily goals drawn as bumper plates (IWF colours). */
+:root {
+  --bg: #f3f4f6;
+  --surface: #ffffff;
+  --fg: #171a21;
+  --muted: #5d6472;
+  --line: #dde0e6;
+  --accent: #1f4fd1;
+  --accent-ink: #ffffff;
+  --plate-red: #d22f2f;
+  --plate-blue: #1f4fd1;
+  --plate-yellow: #e0a400;
+  --plate-green: #1e8a4c;
+  --track: #e6e8ec;
+  --good: #1e8a4c;
+  --heat-0: #e6e8ec;
+  --heat-1: #b9c8f0;
+  --heat-2: #7896e4;
+  --heat-3: #1f4fd1;
+  --font-display: "Barlow Condensed", "Arial Narrow", "Roboto Condensed", sans-serif;
+  --font-body: "Barlow", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --r: 14px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1116; --surface: #181b22; --fg: #eceef2; --muted: #9aa1ae; --line: #2a2e38;
+    --accent: #6f93ff; --accent-ink: #0f1116;
+    --plate-red: #f0605a; --plate-blue: #6f93ff; --plate-yellow: #f2c13a; --plate-green: #4cc27f;
+    --track: #262a33; --good: #4cc27f;
+    --heat-0: #232731; --heat-1: #2a3a66; --heat-2: #3f5cb0; --heat-3: #6f93ff;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1116; --surface: #181b22; --fg: #eceef2; --muted: #9aa1ae; --line: #2a2e38;
+  --accent: #6f93ff; --accent-ink: #0f1116;
+  --plate-red: #f0605a; --plate-blue: #6f93ff; --plate-yellow: #f2c13a; --plate-green: #4cc27f;
+  --track: #262a33; --good: #4cc27f;
+  --heat-0: #232731; --heat-1: #2a3a66; --heat-2: #3f5cb0; --heat-3: #6f93ff;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 16px; line-height: 1.45; }
+button { font: inherit; color: inherit; }
+button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.app { max-width: 520px; margin: 0 auto; padding-inline: 16px; padding-block: 18px 110px; display: grid; gap: 22px; }
+h1, h2, h3 { font-family: var(--font-display); text-wrap: balance; margin: 0; letter-spacing: .01em; }
+h1 { font-size: 2.1rem; line-height: 1; text-transform: uppercase; }
+h2 { font-size: 1.35rem; text-transform: uppercase; }
+h3 { font-size: 1.1rem; }
+.eyebrow { font-family: var(--font-display); font-weight: 700; font-size: .8rem; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+.num { font-variant-numeric: tabular-nums; }
+.muted { color: var(--muted); }
+.top { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; }
+.pill { font-size: .75rem; padding: 3px 9px; border-radius: 99px; border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
+.pill.ok { color: var(--good); border-color: currentColor; }
+section { display: grid; gap: 12px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 16px; display: grid; gap: 12px; }
+
+/* Plates */
+.plates { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.plate { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 14px 12px; display: grid; justify-items: center; gap: 8px; }
+.plate svg { width: 104px; height: 104px; display: block; }
+.plate .val { font-family: var(--font-display); font-weight: 800; font-size: 1.5rem; line-height: 1; }
+.plate .lbl { font-size: .82rem; color: var(--muted); text-align: center; }
+.stepper { display: flex; gap: 8px; }
+.stepper button { width: 44px; height: 38px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); font-size: 1.25rem; font-weight: 600; cursor: pointer; }
+.stepper button:active { transform: scale(.96); }
+
+/* Session */
+.session-head { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; flex-wrap: wrap; }
+.ex { display: grid; gap: 0; }
+.ex label { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 11px 2px; border-top: 1px solid var(--line); cursor: pointer; }
+.ex label:first-child { border-top: 0; }
+.ex input { width: 22px; height: 22px; accent-color: var(--accent); margin: 0; }
+.ex .name { min-width: 0; }
+.ex .dose { font-family: var(--font-display); font-weight: 700; color: var(--muted); font-size: 1.05rem; }
+.ex input:checked ~ .name { color: var(--muted); text-decoration: line-through; }
+.btn { appearance: none; border: 0; border-radius: 12px; padding: 13px 16px; background: var(--accent); color: var(--accent-ink); font-family: var(--font-display); font-weight: 700; font-size: 1.1rem; letter-spacing: .04em; text-transform: uppercase; cursor: pointer; }
+.btn.ghost { background: transparent; color: var(--fg); border: 1px solid var(--line); }
+.btn.done { background: var(--good); }
+.tip { font-size: .92rem; color: var(--muted); }
+
+/* Stats */
+.stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.stat { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 12px; }
+.stat b { display: block; font-family: var(--font-display); font-size: 1.8rem; line-height: 1.05; }
+.stat span { font-size: .78rem; color: var(--muted); }
+
+.heat { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 5px; }
+.heat .dow { font-size: .7rem; color: var(--muted); text-align: center; }
+.heat .cell { aspect-ratio: 1; max-width: 100%; border-radius: 6px; background: var(--heat-0); display: grid; place-items: center; font-size: .7rem; color: var(--muted); }
+.heat .cell.l1 { background: var(--heat-1); }
+.heat .cell.l2 { background: var(--heat-2); color: var(--accent-ink); }
+.heat .cell.l3 { background: var(--heat-3); color: var(--accent-ink); }
+.heat .cell.today { outline: 2px solid var(--fg); outline-offset: 1px; }
+.heat .cell.future { background: transparent; border: 1px dashed var(--line); }
+.legend { display: flex; gap: 6px; align-items: center; font-size: .75rem; color: var(--muted); }
+.legend i { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+
+.row { display: flex; gap: 10px; flex-wrap: wrap; align-items: end; }
+.field { display: grid; gap: 4px; flex: 1 1 120px; min-width: 0; }
+.field span { font-size: .8rem; color: var(--muted); }
+input[type=number], input[type=date], select { width: 100%; font: inherit; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--fg); }
+.chart { width: 100%; height: auto; display: block; }
+.chart text { fill: var(--muted); font-size: 11px; font-family: var(--font-body); }
+
+/* Plans */
+.plan { display: grid; gap: 10px; }
+.plan.selected { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.plan-meta { display: flex; gap: 8px; flex-wrap: wrap; }
+.week { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
+.week div { text-align: center; font-size: .72rem; padding: 6px 0; border-radius: 8px; background: var(--track); color: var(--muted); }
+.week div.on { background: var(--accent); color: var(--accent-ink); font-weight: 600; }
+details summary { cursor: pointer; color: var(--accent); font-weight: 600; }
+details ul { margin: 8px 0 0; padding-left: 18px; }
+details li { margin: 3px 0; }
+
+/* Tabs */
+.tabs { position: fixed; left: 0; right: 0; bottom: 0; background: var(--surface); border-top: 1px solid var(--line); padding: 6px 12px calc(6px + env(safe-area-inset-bottom, 0px)); display: flex; justify-content: center; z-index: 5; }
+.tabs .inner { display: grid; grid-template-columns: repeat(3, 1fr); max-width: 520px; width: 100%; gap: 6px; }
+.tabs button { border: 0; background: transparent; padding: 10px 4px; border-radius: 10px; font-family: var(--font-display); font-weight: 700; font-size: 1rem; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); cursor: pointer; }
+.tabs button[aria-selected=true] { color: var(--accent); background: var(--bg); }
+.toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(76px + env(safe-area-inset-bottom, 0px)); background: var(--fg); color: var(--bg); padding: 9px 14px; border-radius: 10px; font-size: .9rem; z-index: 6; }
+@media (prefers-reduced-motion: no-preference) {
+  .ring { transition: stroke-dashoffset .35s ease; }
+}
+</style>
+
+<div class="app">
+  <header class="top">
+    <div>
+      <div class="eyebrow" id="dateLine">Today</div>
+      <h1>Plate Log</h1>
+    </div>
+    <span class="pill" id="sync">Loading…</span>
+  </header>
+
+  <!-- TODAY -->
+  <main id="tab-today" class="view">
+    <section>
+      <div class="card" id="sessionCard"></div>
+    </section>
+    <section style="margin-top:22px">
+      <div class="top"><h2>Daily goals</h2><span class="muted" style="font-size:.85rem" id="goalsHit"></span></div>
+      <div class="plates" id="plates"></div>
+    </section>
+  </main>
+
+  <!-- PROGRESS -->
+  <main id="tab-progress" class="view" hidden>
+    <section>
+      <div class="stats">
+        <div class="stat"><b class="num" id="stStreak">0</b><span>day streak</span></div>
+        <div class="stat"><b class="num" id="stWeek">0/0</b><span>workouts this week</span></div>
+        <div class="stat"><b class="num" id="stTotal">0</b><span>workouts total</span></div>
+      </div>
+    </section>
+    <section style="margin-top:22px">
+      <h2>Last 5 weeks</h2>
+      <div class="card">
+        <div class="heat" id="heat"></div>
+        <div class="legend">Less <i style="background:var(--heat-0)"></i><i style="background:var(--heat-1)"></i><i style="background:var(--heat-2)"></i><i style="background:var(--heat-3)"></i> More · workout + goals hit</div>
+      </div>
+    </section>
+    <section style="margin-top:22px">
+      <h2>Body weight</h2>
+      <div class="card">
+        <form class="row" id="wForm">
+          <label class="field"><span>Date</span><input type="date" id="wDate"></label>
+          <label class="field"><span>Weight (<span id="wUnit">kg</span>)</span><input type="number" id="wVal" step="0.1" min="20" max="400" inputmode="decimal" placeholder="e.g. 78.4"></label>
+          <button class="btn" type="submit">Log</button>
+        </form>
+        <div id="wChart"></div>
+      </div>
+    </section>
+    <section style="margin-top:22px">
+      <h2>My targets</h2>
+      <div class="card">
+        <div class="row">
+          <label class="field"><span>Steps / day</span><input type="number" id="tSteps" min="0" step="500"></label>
+          <label class="field"><span>Water (glasses)</span><input type="number" id="tWater" min="0" step="1"></label>
+        </div>
+        <div class="row">
+          <label class="field"><span>Protein (g)</span><input type="number" id="tProtein" min="0" step="10"></label>
+          <label class="field"><span>Sleep (hours)</span><input type="number" id="tSleep" min="0" step="0.5"></label>
+        </div>
+        <div class="row">
+          <label class="field"><span>Goal weight</span><input type="number" id="tGoalW" min="0" step="0.5" placeholder="optional"></label>
+          <label class="field"><span>Units</span><select id="tUnit"><option value="kg">kg</option><option value="lb">lb</option></select></label>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- PLANS -->
+  <main id="tab-plans" class="view" hidden>
+    <section>
+      <div>
+        <h2>Suggested plans</h2>
+        <p class="tip" style="margin:4px 0 0">Pick one and it shows up on your Today screen on the right days. Not sure? Start with <b>Start Strong</b> for 6 weeks, then move up.</p>
+      </div>
+      <div id="plans" style="display:grid;gap:12px"></div>
+    </section>
+  </main>
+</div>
+
+<nav class="tabs" aria-label="Sections"><div class="inner" role="tablist">
+  <button role="tab" id="b-today" aria-selected="true" data-tab="today">Today</button>
+  <button role="tab" id="b-progress" aria-selected="false" data-tab="progress">Progress</button>
+  <button role="tab" id="b-plans" aria-selected="false" data-tab="plans">Plans</button>
+</div></nav>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+/* ---------- Plans ---------- */
+const DOW = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+const REST = { title: "Rest & recover", items: [["Easy walk", "20–30 min"], ["Hip + shoulder mobility", "10 min"], ["Stretch hamstrings & chest", "5 min"]], note: "Recovery is when you get stronger. Keep moving, keep it easy." };
+const PLANS = [
+  { id: "start", name: "Start Strong", level: "Beginner", days: [1,3,5], length: "~45 min",
+    blurb: "Full body, 3 days a week. Builds the base: squat, hinge, push, pull, core. Add a little weight or a rep each week.",
+    sessions: {
+      A: { title: "Full Body A", items: [["Goblet squat","3 × 10"],["Push-ups","3 × 8–12"],["Dumbbell row","3 × 10 / side"],["Romanian deadlift","3 × 10"],["Plank","3 × 30 s"]] },
+      B: { title: "Full Body B", items: [["Reverse lunge","3 × 8 / side"],["Dumbbell bench press","3 × 10"],["Lat pulldown or band pull","3 × 12"],["Glute bridge","3 × 12"],["Dead bug","3 × 10 / side"]] } },
+    rotate: ["A","B"] },
+  { id: "ul", name: "Upper / Lower", level: "Intermediate", days: [1,2,4,5], length: "~60 min",
+    blurb: "4 days, each muscle trained twice a week. Good next step after 6–8 weeks of consistent training.",
+    sessions: {
+      U: { title: "Upper", items: [["Bench press","4 × 6–8"],["Barbell or cable row","4 × 8"],["Overhead press","3 × 8"],["Pull-ups (assisted ok)","3 × max"],["Curls + triceps pushdown","2 × 12 each"]] },
+      L: { title: "Lower", items: [["Back squat","4 × 6–8"],["Romanian deadlift","3 × 8"],["Walking lunge","3 × 10 / side"],["Leg curl","3 × 12"],["Calf raise","3 × 15"]] } },
+    rotate: ["U","L"] },
+  { id: "lean", name: "Lean & Fit", level: "Fat loss", days: [1,2,3,5,6], length: "30–50 min",
+    blurb: "3 strength days + 2 cardio days. Pair with a small calorie deficit and high protein to drop fat and keep muscle.",
+    sessions: {
+      S: { title: "Strength circuit", items: [["Goblet squat","3 × 12"],["Push-ups","3 × 10"],["Dumbbell row","3 × 12 / side"],["Kettlebell or DB swing","3 × 15"],["Farmer carry","3 × 40 m"]] },
+      Z: { title: "Zone 2 cardio", items: [["Brisk walk, bike or jog","35–45 min"],["Pace check: can still talk in full sentences","—"]] },
+      I: { title: "Intervals", items: [["Warm-up","5 min easy"],["Hard effort / easy recovery","8 × 30 s / 90 s"],["Cool-down","5 min easy"]] } },
+    schedule: { 1: "S", 2: "Z", 3: "S", 5: "S", 6: "I" } },
+  { id: "home", name: "Home, No Kit", level: "Any level", days: [1,3,4,6], length: "~30 min",
+    blurb: "Bodyweight only, 4 days. Make it harder by slowing down the lowering phase and adding reps.",
+    sessions: {
+      A: { title: "Push + Legs", items: [["Squats","4 × 15"],["Push-ups (knees ok)","4 × max − 2"],["Split squat","3 × 10 / side"],["Pike push-ups","3 × 8"],["Plank","3 × 40 s"]] },
+      B: { title: "Pull + Core", items: [["Towel or table row","4 × 10"],["Glute bridge, single leg","3 × 10 / side"],["Superman hold","3 × 30 s"],["Mountain climbers","3 × 30 s"],["Side plank","2 × 30 s / side"]] } },
+    rotate: ["A","B"] },
+];
+
+/* ---------- State ---------- */
+const DEFAULT = () => ({ v: 1, planId: "start", unit: "kg", goalWeight: null,
+  targets: { steps: 8000, water: 8, protein: 120, sleep: 7.5 }, days: {}, weights: {} });
+let state = DEFAULT();
+let dbRef = null, dirty = false, writing = false, saveTimer = null;
+const LS_KEY = "plate-log-v1";
+
+const pad = n => String(n).padStart(2, "0");
+const keyOf = d => d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
+const parseKey = k => { const [y, m, d] = k.split("-").map(Number); return new Date(y, m - 1, d); };
+const todayKey = () => keyOf(new Date());
+const day = k => (state.days[k] ||= { workout: false, steps: 0, water: 0, protein: 0, sleep: 0, sets: {} });
+const plan = () => PLANS.find(p => p.id === state.planId) || PLANS[0];
+
+function sessionFor(date) {
+  const p = plan(), dow = date.getDay();
+  if (p.schedule) return p.schedule[dow] ? { key: p.schedule[dow], ...p.sessions[p.schedule[dow]] } : null;
+  if (!p.days.includes(dow)) return null;
+  // Rotate A/B by counting training days since a fixed Monday, so the order stays stable.
+  const monIdx = d => (d + 6) % 7;
+  const epoch = new Date(2024, 0, 1);
+  const weeks = Math.floor(Math.round((new Date(date.getFullYear(), date.getMonth(), date.getDate()) - epoch) / 864e5) / 7);
+  const n = weeks * p.days.length + p.days.filter(d => monIdx(d) < monIdx(dow)).length;
+  const k = p.rotate[n % p.rotate.length];
+  return { key: k, ...p.sessions[k] };
+}
+
+/* ---------- Persistence ---------- */
+function lsLoad() { try { const s = localStorage.getItem(LS_KEY); return s ? JSON.parse(s) : null; } catch { return null; } }
+function lsSave() { try { localStorage.setItem(LS_KEY, JSON.stringify(state)); } catch {} }
+function merge(s) { const d = DEFAULT(); return { ...d, ...s, targets: { ...d.targets, ...(s.targets || {}) }, days: s.days || {}, weights: s.weights || {} }; }
+function setSync(text, ok) { const el = document.getElementById("sync"); el.textContent = text; el.classList.toggle("ok", !!ok); }
+
+function save() {
+  lsSave(); dirty = true;
+  clearTimeout(saveTimer); saveTimer = setTimeout(flush, 700);
+}
+async function flush() {
+  if (!dbRef) { dirty = false; return; }
+  if (writing) { saveTimer = setTimeout(flush, 400); return; }
+  writing = true; setSync("Saving…");
+  try { await dbRef.set(JSON.parse(JSON.stringify(state))); dirty = false; setSync("Synced", true); }
+  catch (e) {
+    if (e && e.code === "unavailable") { setTimeout(flush, 1500 + Math.random() * 1000); }
+    else { setSync("Saved on this device"); if (e && e.code === "quota_exceeded") toast("Storage is full. Older days may need clearing."); }
+  } finally { writing = false; }
+}
+
+async function connect() {
+  const local = lsLoad(); if (local) { state = merge(local); renderAll(); }
+  let db = null, uid = null;
+  try { const user = await window.claude?.use?.("user"); uid = user ? await user.id() : null; db = uid ? await window.claude.use("db") : null; } catch {}
+  if (!db || !uid) { setSync("Saved on this device"); renderAll(); return; }
+  dbRef = db.doc("data/users/" + uid + "/state");
+  let first = true;
+  dbRef.onSnapshot(snap => {
+    if (snap.metadata.hasPendingWrites || dirty || writing) return;
+    if (snap.exists) { state = merge(JSON.parse(JSON.stringify(snap.data()))); lsSave(); renderAll(); setSync("Synced", true); }
+    else if (first) { save(); }
+    first = false;
+  }, () => setSync("Saved on this device"));
+}
+
+/* ---------- UI helpers ---------- */
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+let toastT; function toast(m) { const t = $("toast"); t.textContent = m; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => t.hidden = true, 1800); }
+
+const GOALS = [
+  { k: "steps", label: "Steps", step: 1000, color: "--plate-red", fmt: v => v >= 1000 ? (v / 1000).toFixed(v % 1000 ? 1 : 0) + "k" : v },
+  { k: "water", label: "Glasses of water", step: 1, color: "--plate-blue", fmt: v => v },
+  { k: "protein", label: "Protein (g)", step: 10, color: "--plate-yellow", fmt: v => v },
+  { k: "sleep", label: "Sleep (h)", step: 0.5, color: "--plate-green", fmt: v => v },
+];
+function goalsHit(d) { return GOALS.filter(g => state.targets[g.k] > 0 && (d[g.k] || 0) >= state.targets[g.k]).length; }
+
+function plateSVG(frac, color) {
+  const R = 44, C = 2 * Math.PI * R, off = C * (1 - Math.min(frac, 1));
+  return `<svg viewBox="0 0 104 104" aria-hidden="true">
+    <circle cx="52" cy="52" r="${R}" fill="none" stroke="var(--track)" stroke-width="14"/>
+    <circle class="ring" cx="52" cy="52" r="${R}" fill="none" stroke="var(${color})" stroke-width="14" stroke-dasharray="${C}" stroke-dashoffset="${off}" transform="rotate(-90 52 52)"/>
+    <circle cx="52" cy="52" r="9" fill="var(--surface)" stroke="var(--line)" stroke-width="2"/>
+  </svg>`;
+}
+
+/* ---------- Render: Today ---------- */
+function renderToday() {
+  const now = new Date(), k = todayKey(), d = day(k);
+  $("dateLine").textContent = now.toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "short" });
+  const s = sessionFor(now), sess = s || REST, p = plan();
+  const items = sess.items.map(([n, dose], i) => {
+    const id = "ex-" + i; const on = !!d.sets[i];
+    return `<label for="${id}"><input type="checkbox" id="${id}" data-i="${i}" ${on ? "checked" : ""}><span class="name">${esc(n)}</span><span class="dose num">${esc(dose)}</span></label>`;
+  }).join("");
+  $("sessionCard").innerHTML = `
+    <div class="session-head"><div><div class="eyebrow">${s ? esc(p.name) + " · " + esc(p.length) : "Rest day"}</div><h2>${esc(sess.title)}</h2></div>
+    ${d.workout ? '<span class="pill ok">Done</span>' : ""}</div>
+    <div class="ex">${items}</div>
+    ${sess.note ? `<p class="tip" style="margin:0">${esc(sess.note)}</p>` : ""}
+    <button class="btn ${d.workout ? "done" : ""}" id="doneBtn">${d.workout ? "Workout logged ✓" : s ? "Finish workout" : "Log active recovery"}</button>`;
+  $("sessionCard").querySelectorAll("input[type=checkbox]").forEach(cb => cb.addEventListener("change", () => {
+    d.sets[cb.dataset.i] = cb.checked;
+    const all = sess.items.every((_, i) => d.sets[i]);
+    if (all && !d.workout) { d.workout = true; toast("All sets done. Workout logged."); }
+    save(); renderToday();
+  }));
+  $("doneBtn").addEventListener("click", () => { d.workout = !d.workout; if (d.workout) toast("Workout logged."); save(); renderToday(); });
+
+  $("plates").innerHTML = GOALS.map(g => {
+    const v = d[g.k] || 0, t = state.targets[g.k] || 0;
+    return `<div class="plate"><div style="position:relative">${plateSVG(t ? v / t : 0, g.color)}</div>
+      <div class="val num">${g.fmt(v)}<span class="muted" style="font-size:.95rem;font-weight:600"> / ${g.fmt(t)}</span></div>
+      <div class="lbl">${g.label}</div>
+      <div class="stepper"><button data-g="${g.k}" data-d="-1" aria-label="Less ${g.label}">−</button><button data-g="${g.k}" data-d="1" aria-label="More ${g.label}">+</button></div></div>`;
+  }).join("");
+  $("plates").querySelectorAll("button").forEach(b => b.addEventListener("click", () => {
+    const g = GOALS.find(x => x.k === b.dataset.g), before = goalsHit(d);
+    d[g.k] = Math.max(0, Math.round(((d[g.k] || 0) + g.step * Number(b.dataset.d)) * 10) / 10);
+    if (goalsHit(d) > before && (d[g.k] >= state.targets[g.k])) toast(g.label + " goal hit.");
+    save(); renderToday();
+  }));
+  $("goalsHit").textContent = goalsHit(d) + " of 4 hit";
+}
+
+/* ---------- Render: Progress ---------- */
+function score(k) { const d = state.days[k]; if (!d) return 0; return (d.workout ? 2 : 0) + goalsHit(d); }
+function renderProgress() {
+  const now = new Date(); now.setHours(0, 0, 0, 0);
+  // streak: consecutive days with a workout or ≥2 goals hit, allowing today to be in progress
+  let streak = 0, c = new Date(now);
+  if (score(keyOf(c)) < 2) c.setDate(c.getDate() - 1);
+  while (score(keyOf(c)) >= 2) { streak++; c.setDate(c.getDate() - 1); }
+  const mon = new Date(now); mon.setDate(now.getDate() - ((now.getDay() + 6) % 7));
+  let wk = 0; for (let i = 0; i < 7; i++) { const x = new Date(mon); x.setDate(mon.getDate() + i); if (state.days[keyOf(x)]?.workout) wk++; }
+  $("stStreak").textContent = streak;
+  $("stWeek").textContent = wk + "/" + plan().days.length;
+  $("stTotal").textContent = Object.values(state.days).filter(d => d.workout).length;
+
+  const start = new Date(mon); start.setDate(mon.getDate() - 28);
+  let html = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"].map(d => `<div class="dow">${d[0]}</div>`).join("");
+  for (let i = 0; i < 35; i++) {
+    const x = new Date(start); x.setDate(start.getDate() + i); const k = keyOf(x), sc = score(k);
+    const lv = sc >= 5 ? 3 : sc >= 3 ? 2 : sc >= 1 ? 1 : 0;
+    const cls = x > now ? "future" : "l" + lv;
+    html += `<div class="cell ${cls} ${k === keyOf(now) ? "today" : ""}" title="${k}">${x.getDate()}</div>`;
+  }
+  $("heat").innerHTML = html;
+
+  $("wUnit").textContent = state.unit;
+  if (!$("wDate").value) $("wDate").value = todayKey();
+  renderWeightChart();
+  const t = state.targets;
+  $("tSteps").value = t.steps; $("tWater").value = t.water; $("tProtein").value = t.protein; $("tSleep").value = t.sleep;
+  $("tGoalW").value = state.goalWeight ?? ""; $("tUnit").value = state.unit;
+}
+function renderWeightChart() {
+  const pts = Object.entries(state.weights).sort(([a], [b]) => a < b ? -1 : 1).slice(-30);
+  if (!pts.length) { $("wChart").innerHTML = `<p class="tip" style="margin:0">No weigh-ins yet. Log one above; weigh in the morning, same scale, 1–3 times a week. Trends matter more than single days.</p>`; return; }
+  const W = 480, H = 200, L = 40, Rr = 14, T = 14, B = 26;
+  const vals = pts.map(p => p[1]); const gw = state.goalWeight;
+  let lo = Math.min(...vals, gw ?? Infinity), hi = Math.max(...vals, gw ?? -Infinity);
+  if (hi - lo < 2) { lo -= 1; hi += 1; } lo = Math.floor(lo); hi = Math.ceil(hi);
+  const t0 = parseKey(pts[0][0]).getTime(), t1 = parseKey(pts[pts.length - 1][0]).getTime() || t0;
+  const x = k => pts.length === 1 ? (L + W - Rr) / 2 : L + (parseKey(k).getTime() - t0) / (t1 - t0 || 1) * (W - L - Rr);
+  const y = v => T + (hi - v) / (hi - lo) * (H - T - B);
+  const ticks = [lo, (lo + hi) / 2, hi];
+  let g = ticks.map(v => `<line x1="${L}" x2="${W - Rr}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)" stroke-width="1"/><text x="${L - 6}" y="${y(v) + 4}" text-anchor="end">${+v.toFixed(1)}</text>`).join("");
+  if (gw) g += `<line x1="${L}" x2="${W - Rr}" y1="${y(gw)}" y2="${y(gw)}" stroke="var(--good)" stroke-dasharray="5 4" stroke-width="1.5"/><text x="${W - Rr}" y="${y(gw) - 5}" text-anchor="end" style="fill:var(--good)">goal ${gw}</text>`;
+  const line = pts.map(([k, v], i) => (i ? "L" : "M") + x(k).toFixed(1) + " " + y(v).toFixed(1)).join(" ");
+  const area = line + ` L${x(pts[pts.length - 1][0]).toFixed(1)} ${H - B} L${x(pts[0][0]).toFixed(1)} ${H - B} Z`;
+  const last = pts[pts.length - 1];
+  const fmtD = k => parseKey(k).toLocaleDateString(undefined, { day: "numeric", month: "short" });
+  const delta = pts.length > 1 ? +(last[1] - pts[0][1]).toFixed(1) : 0;
+  $("wChart").innerHTML = `
+    <div class="top"><div><span class="eyebrow">Latest</span><div style="font-family:var(--font-display);font-weight:800;font-size:1.6rem" class="num">${last[1]} ${state.unit}</div></div>
+    <span class="muted num" style="font-size:.9rem">${delta > 0 ? "+" : ""}${delta} ${state.unit} over ${pts.length} weigh-ins</span></div>
+    <svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Body weight trend">
+      ${g}
+      <path d="${area}" fill="var(--accent)" opacity=".12"/>
+      <path d="${line}" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linejoin="round"/>
+      ${pts.map(([k, v]) => `<circle cx="${x(k)}" cy="${y(v)}" r="${k === last[0] ? 5 : 2.5}" fill="var(--accent)"/>`).join("")}
+      <text x="${L}" y="${H - 6}">${fmtD(pts[0][0])}</text>
+      ${pts.length > 1 ? `<text x="${W - Rr}" y="${H - 6}" text-anchor="end">${fmtD(last[0])}</text>` : ""}
+    </svg>
+    <button class="btn ghost" id="wUndo" style="font-size:.9rem;padding:8px 12px;justify-self:start">Remove ${fmtD(last[0])} entry</button>`;
+  $("wUndo").addEventListener("click", () => { delete state.weights[last[0]]; save(); renderWeightChart(); toast("Entry removed."); });
+}
+
+/* ---------- Render: Plans ---------- */
+function renderPlans() {
+  $("plans").innerHTML = PLANS.map(p => {
+    const sel = p.id === state.planId;
+    const week = [1,2,3,4,5,6,0].map(d => `<div class="${p.days.includes(d) ? "on" : ""}">${DOW[d]}</div>`).join("");
+    const sess = Object.values(p.sessions).map(s => `<li><b>${esc(s.title)}:</b> ${s.items.map(i => esc(i[0]) + " " + esc(i[1])).join(" · ")}</li>`).join("");
+    return `<div class="card plan ${sel ? "selected" : ""}">
+      <div class="session-head"><h2>${esc(p.name)}</h2>${sel ? '<span class="pill ok">Your plan</span>' : ""}</div>
+      <div class="plan-meta"><span class="pill">${esc(p.level)}</span><span class="pill">${p.days.length} days / week</span><span class="pill">${esc(p.length)}</span></div>
+      <p style="margin:0">${esc(p.blurb)}</p>
+      <div class="week">${week}</div>
+      <details><summary>See the workouts</summary><ul>${sess}</ul></details>
+      ${sel ? "" : `<button class="btn ghost" data-plan="${p.id}">Use this plan</button>`}
+    </div>`;
+  }).join("");
+  $("plans").querySelectorAll("[data-plan]").forEach(b => b.addEventListener("click", () => {
+    state.planId = b.dataset.plan; save(); renderAll(); toast("Plan switched to " + plan().name + ".");
+  }));
+}
+
+function renderAll() { renderToday(); renderProgress(); renderPlans(); }
+
+/* ---------- Events ---------- */
+document.querySelectorAll(".tabs button").forEach(b => b.addEventListener("click", () => showTab(b.dataset.tab)));
+function showTab(t) {
+  document.querySelectorAll(".view").forEach(v => v.hidden = v.id !== "tab-" + t);
+  document.querySelectorAll(".tabs button").forEach(b => b.setAttribute("aria-selected", b.dataset.tab === t));
+  try { localStorage.setItem("plate-log-tab", t); } catch {}
+  window.scrollTo(0, 0);
+}
+$("wForm").addEventListener("submit", e => {
+  e.preventDefault();
+  const v = parseFloat($("wVal").value), k = $("wDate").value;
+  if (!k || !(v > 0)) { toast("Enter a date and a weight."); return; }
+  state.weights[k] = Math.round(v * 10) / 10; $("wVal").value = ""; save(); renderWeightChart(); toast("Weigh-in logged.");
+});
+[["tSteps","steps"],["tWater","water"],["tProtein","protein"],["tSleep","sleep"]].forEach(([id, k]) =>
+  $(id).addEventListener("change", () => { const v = parseFloat($(id).value); if (v >= 0) { state.targets[k] = v; save(); renderToday(); } }));
+$("tGoalW").addEventListener("change", () => { const v = parseFloat($("tGoalW").value); state.goalWeight = v > 0 ? v : null; save(); renderWeightChart(); });
+$("tUnit").addEventListener("change", () => { state.unit = $("tUnit").value; $("wUnit").textContent = state.unit; save(); renderWeightChart(); });
+document.addEventListener("visibilitychange", () => { if (!document.hidden) renderToday(); });
+
+try { const t = localStorage.getItem("plate-log-tab"); if (t && $("tab-" + t)) showTab(t); } catch {}
+renderAll();
+connect();
+</script>

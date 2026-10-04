@@ -1,9 +1,9 @@
-<title>Plate Log</title>
+<title>Rebirth Challenge</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Barlow:wght@400;500;600&display=swap">
 <style>
-/* Layout: one-column phone app shell, max 520px, fixed bottom tab bar; daily goals drawn as bumper plates (IWF colours). */
+/* Layout: one-column phone app shell, max 520px, fixed bottom tab bar. Summary ledger (tracking vs plan) up top, daily goals as bumper plates. */
 :root {
   --bg: #f3f4f6;
   --surface: #ffffff;
@@ -18,6 +18,9 @@
   --plate-green: #1e8a4c;
   --track: #e6e8ec;
   --good: #1e8a4c;
+  --warn: #b45309;
+  --bad: #c02626;
+  --band: rgba(30, 138, 76, .14);
   --heat-0: #e6e8ec;
   --heat-1: #b9c8f0;
   --heat-2: #7896e4;
@@ -31,7 +34,7 @@
     --bg: #0f1116; --surface: #181b22; --fg: #eceef2; --muted: #9aa1ae; --line: #2a2e38;
     --accent: #6f93ff; --accent-ink: #0f1116;
     --plate-red: #f0605a; --plate-blue: #6f93ff; --plate-yellow: #f2c13a; --plate-green: #4cc27f;
-    --track: #262a33; --good: #4cc27f;
+    --track: #262a33; --good: #4cc27f; --warn: #f0a24a; --bad: #f0605a; --band: rgba(76, 194, 127, .16);
     --heat-0: #232731; --heat-1: #2a3a66; --heat-2: #3f5cb0; --heat-3: #6f93ff;
     color-scheme: dark;
   }
@@ -40,27 +43,47 @@
   --bg: #0f1116; --surface: #181b22; --fg: #eceef2; --muted: #9aa1ae; --line: #2a2e38;
   --accent: #6f93ff; --accent-ink: #0f1116;
   --plate-red: #f0605a; --plate-blue: #6f93ff; --plate-yellow: #f2c13a; --plate-green: #4cc27f;
-  --track: #262a33; --good: #4cc27f;
+  --track: #262a33; --good: #4cc27f; --warn: #f0a24a; --bad: #f0605a; --band: rgba(76, 194, 127, .16);
   --heat-0: #232731; --heat-1: #2a3a66; --heat-2: #3f5cb0; --heat-3: #6f93ff;
   color-scheme: dark;
 }
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
+header.top { flex-wrap: wrap; }
 body { background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 16px; line-height: 1.45; }
 button { font: inherit; color: inherit; }
-button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+button:focus-visible, input:focus-visible, select:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .app { max-width: 520px; margin: 0 auto; padding-inline: 16px; padding-block: 18px 110px; display: grid; gap: 22px; }
+.view { display: grid; gap: 22px; }
+.app, .view, section, .card { grid-template-columns: minmax(0, 1fr); }
+.top > div { min-width: 0; }
 h1, h2, h3 { font-family: var(--font-display); text-wrap: balance; margin: 0; letter-spacing: .01em; }
 h1 { font-size: 2.1rem; line-height: 1; text-transform: uppercase; }
 h2 { font-size: 1.35rem; text-transform: uppercase; }
-h3 { font-size: 1.1rem; }
 .eyebrow { font-family: var(--font-display); font-weight: 700; font-size: .8rem; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
 .num { font-variant-numeric: tabular-nums; }
 .muted { color: var(--muted); }
 .top { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; }
 .pill { font-size: .75rem; padding: 3px 9px; border-radius: 99px; border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
 .pill.ok { color: var(--good); border-color: currentColor; }
+.pill.warn { color: var(--warn); border-color: currentColor; }
+.pill.bad { color: var(--bad); border-color: currentColor; }
 section { display: grid; gap: 12px; }
 .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 16px; display: grid; gap: 12px; }
+.tip { font-size: .92rem; color: var(--muted); margin: 0; }
+
+/* Ledger */
+.ledger { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; }
+.ledger > div { padding: 2px 10px; border-left: 1px solid var(--line); min-width: 0; }
+.ledger > div:first-child { border-left: 0; padding-left: 0; }
+.ledger b { display: block; font-family: var(--font-display); font-weight: 800; font-size: 1.55rem; line-height: 1.1; }
+.ledger span { font-size: .74rem; color: var(--muted); }
+.ledger .pos { color: var(--bad); } .ledger .neg { color: var(--good); }
+.bar { height: 6px; border-radius: 99px; background: var(--track); overflow: hidden; }
+.bar i { display: block; height: 100%; background: var(--accent); border-radius: 99px; }
+.verdict { font-size: .95rem; margin: 0; }
+.alert { border-left: 3px solid var(--warn); padding: 8px 12px; background: var(--bg); border-radius: 0 10px 10px 0; font-size: .92rem; }
+.alert.bad { border-left-color: var(--bad); }
 
 /* Plates */
 .plates { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
@@ -74,24 +97,22 @@ section { display: grid; gap: 12px; }
 
 /* Session */
 .session-head { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; flex-wrap: wrap; }
-.ex { display: grid; gap: 0; }
 .ex label { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 11px 2px; border-top: 1px solid var(--line); cursor: pointer; }
 .ex label:first-child { border-top: 0; }
 .ex input { width: 22px; height: 22px; accent-color: var(--accent); margin: 0; }
 .ex .name { min-width: 0; }
-.ex .dose { font-family: var(--font-display); font-weight: 700; color: var(--muted); font-size: 1.05rem; }
+.ex .dose { font-family: var(--font-display); font-weight: 700; color: var(--muted); font-size: 1.05rem; text-align: right; }
 .ex input:checked ~ .name { color: var(--muted); text-decoration: line-through; }
 .btn { appearance: none; border: 0; border-radius: 12px; padding: 13px 16px; background: var(--accent); color: var(--accent-ink); font-family: var(--font-display); font-weight: 700; font-size: 1.1rem; letter-spacing: .04em; text-transform: uppercase; cursor: pointer; }
 .btn.ghost { background: transparent; color: var(--fg); border: 1px solid var(--line); }
+.btn.small { font-size: .9rem; padding: 8px 12px; justify-self: start; }
 .btn.done { background: var(--good); }
-.tip { font-size: .92rem; color: var(--muted); }
 
-/* Stats */
+/* Progress */
 .stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
 .stat { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 12px; }
 .stat b { display: block; font-family: var(--font-display); font-size: 1.8rem; line-height: 1.05; }
 .stat span { font-size: .78rem; color: var(--muted); }
-
 .heat { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 5px; }
 .heat .dow { font-size: .7rem; color: var(--muted); text-align: center; }
 .heat .cell { aspect-ratio: 1; max-width: 100%; border-radius: 6px; background: var(--heat-0); display: grid; place-items: center; font-size: .7rem; color: var(--muted); }
@@ -100,23 +121,30 @@ section { display: grid; gap: 12px; }
 .heat .cell.l3 { background: var(--heat-3); color: var(--accent-ink); }
 .heat .cell.today { outline: 2px solid var(--fg); outline-offset: 1px; }
 .heat .cell.future { background: transparent; border: 1px dashed var(--line); }
-.legend { display: flex; gap: 6px; align-items: center; font-size: .75rem; color: var(--muted); }
+.heat .cell.event { box-shadow: inset 0 0 0 2px var(--plate-yellow); }
+.legend { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; font-size: .75rem; color: var(--muted); }
 .legend i { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
-
 .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: end; }
-.field { display: grid; gap: 4px; flex: 1 1 120px; min-width: 0; }
+.field { display: grid; gap: 4px; flex: 1 1 130px; min-width: 0; }
 .field span { font-size: .8rem; color: var(--muted); }
-input[type=number], input[type=date], select { width: 100%; font: inherit; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--fg); }
+input[type=number], input[type=date], select { width: 100%; min-width: 0; font: inherit; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--fg); }
 .chart { width: 100%; height: auto; display: block; }
-.chart text { fill: var(--muted); font-size: 11px; font-family: var(--font-body); }
+.chart text { fill: var(--muted); font-size: 14px; font-family: var(--font-body); }
+.keys { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: .75rem; color: var(--muted); }
+.keys i { display: inline-block; width: 16px; height: 0; border-top: 2px solid; vertical-align: middle; margin-right: 5px; }
+.milestones { display: grid; gap: 0; }
+.milestones > div { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; padding: 9px 0; border-top: 1px solid var(--line); align-items: center; }
+.milestones > div:first-child { border-top: 0; }
 
 /* Plans */
-.plan { display: grid; gap: 10px; }
 .plan.selected { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
 .plan-meta { display: flex; gap: 8px; flex-wrap: wrap; }
 .week { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
 .week div { text-align: center; font-size: .72rem; padding: 6px 0; border-radius: 8px; background: var(--track); color: var(--muted); }
 .week div.on { background: var(--accent); color: var(--accent-ink); font-weight: 600; }
+.phases { display: grid; grid-template-columns: 4fr 6fr 4fr 2fr; gap: 3px; }
+.phases div { font-size: .7rem; text-align: center; padding: 5px 0; border-radius: 6px; background: var(--track); color: var(--muted); }
+.phases div.now { background: var(--accent); color: var(--accent-ink); font-weight: 600; }
 details summary { cursor: pointer; color: var(--accent); font-weight: 600; }
 details ul { margin: 8px 0 0; padding-left: 18px; }
 details li { margin: 3px 0; }
@@ -126,27 +154,24 @@ details li { margin: 3px 0; }
 .tabs .inner { display: grid; grid-template-columns: repeat(3, 1fr); max-width: 520px; width: 100%; gap: 6px; }
 .tabs button { border: 0; background: transparent; padding: 10px 4px; border-radius: 10px; font-family: var(--font-display); font-weight: 700; font-size: 1rem; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); cursor: pointer; }
 .tabs button[aria-selected=true] { color: var(--accent); background: var(--bg); }
-.toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(76px + env(safe-area-inset-bottom, 0px)); background: var(--fg); color: var(--bg); padding: 9px 14px; border-radius: 10px; font-size: .9rem; z-index: 6; }
-@media (prefers-reduced-motion: no-preference) {
-  .ring { transition: stroke-dashoffset .35s ease; }
-}
+.toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(76px + env(safe-area-inset-bottom, 0px)); background: var(--fg); color: var(--bg); padding: 9px 14px; border-radius: 10px; font-size: .9rem; z-index: 6; max-width: calc(100% - 32px); }
+@media (prefers-reduced-motion: no-preference) { .ring { transition: stroke-dashoffset .35s ease; } }
 </style>
 
 <div class="app">
   <header class="top">
     <div>
       <div class="eyebrow" id="dateLine">Today</div>
-      <h1>Plate Log</h1>
+      <h1>Rebirth Challenge</h1>
     </div>
     <span class="pill" id="sync">Loading…</span>
   </header>
 
   <!-- TODAY -->
   <main id="tab-today" class="view">
+    <div class="card" id="ledger"></div>
+    <div class="card" id="sessionCard"></div>
     <section>
-      <div class="card" id="sessionCard"></div>
-    </section>
-    <section style="margin-top:22px">
       <div class="top"><h2>Daily goals</h2><span class="muted" style="font-size:.85rem" id="goalsHit"></span></div>
       <div class="plates" id="plates"></div>
     </section>
@@ -155,45 +180,57 @@ details li { margin: 3px 0; }
   <!-- PROGRESS -->
   <main id="tab-progress" class="view" hidden>
     <section>
-      <div class="stats">
-        <div class="stat"><b class="num" id="stStreak">0</b><span>day streak</span></div>
-        <div class="stat"><b class="num" id="stWeek">0/0</b><span>workouts this week</span></div>
-        <div class="stat"><b class="num" id="stTotal">0</b><span>workouts total</span></div>
-      </div>
-    </section>
-    <section style="margin-top:22px">
-      <h2>Last 5 weeks</h2>
-      <div class="card">
-        <div class="heat" id="heat"></div>
-        <div class="legend">Less <i style="background:var(--heat-0)"></i><i style="background:var(--heat-1)"></i><i style="background:var(--heat-2)"></i><i style="background:var(--heat-3)"></i> More · workout + goals hit</div>
-      </div>
-    </section>
-    <section style="margin-top:22px">
-      <h2>Body weight</h2>
+      <h2>Weight vs plan</h2>
       <div class="card">
         <form class="row" id="wForm">
           <label class="field"><span>Date</span><input type="date" id="wDate"></label>
-          <label class="field"><span>Weight (<span id="wUnit">kg</span>)</span><input type="number" id="wVal" step="0.1" min="20" max="400" inputmode="decimal" placeholder="e.g. 78.4"></label>
+          <label class="field"><span>Weight (kg)</span><input type="number" id="wVal" step="0.1" min="40" max="250" inputmode="decimal" placeholder="e.g. 99.4"></label>
           <button class="btn" type="submit">Log</button>
         </form>
         <div id="wChart"></div>
       </div>
     </section>
-    <section style="margin-top:22px">
-      <h2>My targets</h2>
+    <section>
+      <h2>Checkpoints</h2>
+      <div class="card"><div class="milestones" id="milestones"></div></div>
+    </section>
+    <section>
+      <div class="stats">
+        <div class="stat"><b class="num" id="stStreak">0</b><span>day streak</span></div>
+        <div class="stat"><b class="num" id="stWeek">0/0</b><span>sessions this week</span></div>
+        <div class="stat"><b class="num" id="stTotal">0</b><span>sessions since Sep 7</span></div>
+      </div>
+      <div class="card">
+        <div class="heat" id="heat"></div>
+        <div class="legend">Less <i style="background:var(--heat-0)"></i><i style="background:var(--heat-1)"></i><i style="background:var(--heat-2)"></i><i style="background:var(--heat-3)"></i> More · <i style="box-shadow:inset 0 0 0 2px var(--plate-yellow)"></i> trip</div>
+      </div>
+    </section>
+    <section>
+      <h2>Trips</h2>
+      <div class="card">
+        <p class="tip">Set the start dates once they're confirmed. The plan deloads the 3 days before each warm-up trip and tapers the 10 days before the summit.</p>
+        <div class="row">
+          <label class="field"><span>Nangma Valley</span><input type="date" id="evNangma"></label>
+          <label class="field"><span>Rakaposhi Base Camp</span><input type="date" id="evRakaposhi"></label>
+        </div>
+        <div class="row">
+          <label class="field"><span>Summit trip departs</span><input type="date" id="evSummit"></label>
+          <label class="field"><span>Peak</span><select id="evPeak"><option value="">Not confirmed</option><option>Shiftkin Sar (~5,000 m)</option><option>Chikoren Sar (~6,000 m)</option><option>Other (~5,200 m)</option></select></label>
+        </div>
+      </div>
+    </section>
+    <section>
+      <h2>Daily targets</h2>
       <div class="card">
         <div class="row">
           <label class="field"><span>Steps / day</span><input type="number" id="tSteps" min="0" step="500"></label>
-          <label class="field"><span>Water (glasses)</span><input type="number" id="tWater" min="0" step="1"></label>
+          <label class="field"><span>Water (250 ml glasses)</span><input type="number" id="tWater" min="0" step="1"></label>
         </div>
         <div class="row">
           <label class="field"><span>Protein (g)</span><input type="number" id="tProtein" min="0" step="10"></label>
           <label class="field"><span>Sleep (hours)</span><input type="number" id="tSleep" min="0" step="0.5"></label>
         </div>
-        <div class="row">
-          <label class="field"><span>Goal weight</span><input type="number" id="tGoalW" min="0" step="0.5" placeholder="optional"></label>
-          <label class="field"><span>Units</span><select id="tUnit"><option value="kg">kg</option><option value="lb">lb</option></select></label>
-        </div>
+        <p class="tip">Protein is set at ~2 g per kg of goal weight to keep muscle while cutting. Water is set higher for Karachi heat.</p>
       </div>
     </section>
   </main>
@@ -202,8 +239,8 @@ details li { margin: 3px 0; }
   <main id="tab-plans" class="view" hidden>
     <section>
       <div>
-        <h2>Suggested plans</h2>
-        <p class="tip" style="margin:4px 0 0">Pick one and it shows up on your Today screen on the right days. Not sure? Start with <b>Start Strong</b> for 6 weeks, then move up.</p>
+        <h2>Plans</h2>
+        <p class="tip" style="margin-top:4px">Summit Build is written for your goals: lose the weight, keep the legs, and get up a 5,000 m+ peak in December. The others are there for when life gets in the way.</p>
       </div>
       <div id="plans" style="display:grid;gap:12px"></div>
     </section>
@@ -218,87 +255,127 @@ details li { margin: 3px 0; }
 <div class="toast" id="toast" hidden></div>
 
 <script>
-/* ---------- Plans ---------- */
+/* ---------- Challenge constants (from Taha's profile) ---------- */
+const CH = { start: "2026-09-07", end: "2026-12-25", startKg: 102.5, targetKg: 85, checkpoints: [97.5, 92.5, 87.5, 85] };
 const DOW = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
-const REST = { title: "Rest & recover", items: [["Easy walk", "20–30 min"], ["Hip + shoulder mobility", "10 min"], ["Stretch hamstrings & chest", "5 min"]], note: "Recovery is when you get stronger. Keep moving, keep it easy." };
-const PLANS = [
-  { id: "start", name: "Start Strong", level: "Beginner", days: [1,3,5], length: "~45 min",
-    blurb: "Full body, 3 days a week. Builds the base: squat, hinge, push, pull, core. Add a little weight or a rep each week.",
+const pad = n => String(n).padStart(2, "0");
+const keyOf = d => d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
+const parseKey = k => { const [y, m, d] = k.split("-").map(Number); return new Date(y, m - 1, d); };
+const diffDays = (a, b) => Math.round((parseKey(b) - parseKey(a)) / 864e5);
+const todayKey = () => keyOf(new Date());
+const TOTAL = diffDays(CH.start, CH.end); // 109
+const fmtD = k => parseKey(k).toLocaleDateString(undefined, { day: "numeric", month: "short" });
+const r1 = v => Math.round(v * 10) / 10;
+const sgn = v => (v > 0 ? "+" : v < 0 ? "−" : "") + Math.abs(r1(v)).toFixed(1);
+
+/* Training week of the challenge (1–16) and its phase. */
+function weekOf(k) { return Math.min(16, Math.max(1, Math.floor(diffDays(CH.start, k) / 7) + 1)); }
+function phaseOf(w) { return w <= 4 ? "Base" : w <= 10 ? "Build" : w <= 14 ? "Peak" : "Taper"; }
+
+/* ---------- Plans ---------- */
+const REST = { title: "Rest", items: [["Easy walk (counts toward steps)", "30–40 min"], ["Hips, ankles, calves mobility", "10 min"], ["Foam roll quads + calves", "5 min"]],
+  note: "Rest day. The mountain doesn't care, but your knees do." };
+const SUMMIT = {
+  id: "summit", name: "Summit Build", level: "Built for you", days: [1,2,3,4,5,6], length: "45–150 min",
+  blurb: "Six days, fits around office hours. Two strength days to keep muscle on a deficit, zone 2 for the aerobic base, weighted stairs and a long Saturday under a pack that gets heavier each week. Friday is padel.",
+  schedule: { 1: "L", 2: "Z", 3: "U", 4: "S", 5: "P", 6: "X" },
+  sessions: {
+    L: { title: "Strength: legs + core", items: [["Back squat", w => w >= 15 ? "3 × 5" : "4 × 6"], ["Romanian deadlift", "3 × 8"], ["Weighted step-ups (high box)", "3 × 10 / leg"], ["Bulgarian split squat", "3 × 8 / leg"], ["Single-leg calf raise", "3 × 15"], ["Tibialis raises (for descents)", "2 × 20"], ["Hanging knee raise", "3 × 12"]],
+      note: "Keep the weights heavy even while cutting. That's what tells your body to keep the muscle." },
+    Z: { title: "Zone 2: incline treadmill", items: [["Incline walk, 10–15%, nasal breathing", w => (w >= 15 ? 40 : Math.min(45 + (w - 1) * 3, 75)) + " min"], ["Heart rate check: can still talk in full sentences", "—"], ["Mobility: hips + ankles", "10 min"]],
+      note: "Boring on purpose. Your aerobic base is built here, and it's what will carry you above 5,000 m." },
+    U: { title: "Strength: upper + carries", items: [["Pull-ups (assisted ok)", "4 × max − 1"], ["Dumbbell bench press", "3 × 8"], ["Chest-supported row", "3 × 10"], ["Overhead press", "3 × 8"], ["Farmer carry, heavy", "4 × 40 m"], ["Pallof press", "3 × 10 / side"]],
+      note: "Carries and rows are for hauling packs and pulling on fixed lines." },
+    S: { title: "Stairs with a pack", items: [["Stairs or StairMaster with pack", w => packKg(w) + " kg · " + (w >= 15 ? 30 : Math.min(30 + (w - 1) * 2, 55)) + " min"], ["Downhill control: slow step-downs", "3 × 10 / leg"], ["Cool-down walk", "10 min"]],
+      note: "Go before 8 am or after sunset. Karachi humidity will cook you otherwise. Drink 500 ml more than you think you need." },
+    P: { title: "Padel or intervals", items: [["Padel", "60–90 min"], ["…or treadmill intervals instead", "6 × 2 min hard / 2 min easy"], ["Hip + shoulder mobility", "10 min"]],
+      note: "Padel counts. Have fun, keep the ankles intact." },
+    X: { title: "Long day under a pack", items: [["Incline walk / stairs / hike with pack", w => packKg(w) + " kg · " + longMin(w) + " min"], ["Fuel test: eat what you'd eat on the mountain", "every 45 min"], ["Easy stretch", "10 min"]],
+      note: "Expedition rehearsal. Same boots, same pack, same snacks you'll take." },
+  },
+};
+function packKg(w) { return w >= 15 ? 10 : Math.min(8 + (w - 1), 18); }
+function longMin(w) { return w >= 15 ? 75 : Math.min(90 + (w - 1) * 8, 180); }
+const PLANS = [SUMMIT,
+  { id: "lean", name: "Lean & Fit", level: "Busy weeks", days: [1,3,5,6], length: "30–50 min",
+    blurb: "4 days for when work eats the calendar. Enough to hold muscle and the aerobic base, not enough to build them for the summit.",
+    schedule: { 1: "S", 3: "Z", 5: "S", 6: "Z" },
     sessions: {
-      A: { title: "Full Body A", items: [["Goblet squat","3 × 10"],["Push-ups","3 × 8–12"],["Dumbbell row","3 × 10 / side"],["Romanian deadlift","3 × 10"],["Plank","3 × 30 s"]] },
-      B: { title: "Full Body B", items: [["Reverse lunge","3 × 8 / side"],["Dumbbell bench press","3 × 10"],["Lat pulldown or band pull","3 × 12"],["Glute bridge","3 × 12"],["Dead bug","3 × 10 / side"]] } },
-    rotate: ["A","B"] },
-  { id: "ul", name: "Upper / Lower", level: "Intermediate", days: [1,2,4,5], length: "~60 min",
-    blurb: "4 days, each muscle trained twice a week. Good next step after 6–8 weeks of consistent training.",
+      S: { title: "Strength circuit", items: [["Goblet squat", "3 × 12"], ["Push-ups", "3 × 12"], ["Dumbbell row", "3 × 12 / side"], ["Step-ups", "3 × 10 / leg"], ["Farmer carry", "3 × 40 m"]] },
+      Z: { title: "Zone 2", items: [["Incline walk or easy run", "45–60 min"], ["Pace check: full sentences", "—"]] } } },
+  { id: "travel", name: "Travel / Hotel", level: "Work trips", days: [1,3,5], length: "~30 min",
+    blurb: "Hotel room or hotel gym, 3 days. Plus every staircase you can find.",
+    schedule: { 1: "A", 3: "B", 5: "A" },
     sessions: {
-      U: { title: "Upper", items: [["Bench press","4 × 6–8"],["Barbell or cable row","4 × 8"],["Overhead press","3 × 8"],["Pull-ups (assisted ok)","3 × max"],["Curls + triceps pushdown","2 × 12 each"]] },
-      L: { title: "Lower", items: [["Back squat","4 × 6–8"],["Romanian deadlift","3 × 8"],["Walking lunge","3 × 10 / side"],["Leg curl","3 × 12"],["Calf raise","3 × 15"]] } },
-    rotate: ["U","L"] },
-  { id: "lean", name: "Lean & Fit", level: "Fat loss", days: [1,2,3,5,6], length: "30–50 min",
-    blurb: "3 strength days + 2 cardio days. Pair with a small calorie deficit and high protein to drop fat and keep muscle.",
-    sessions: {
-      S: { title: "Strength circuit", items: [["Goblet squat","3 × 12"],["Push-ups","3 × 10"],["Dumbbell row","3 × 12 / side"],["Kettlebell or DB swing","3 × 15"],["Farmer carry","3 × 40 m"]] },
-      Z: { title: "Zone 2 cardio", items: [["Brisk walk, bike or jog","35–45 min"],["Pace check: can still talk in full sentences","—"]] },
-      I: { title: "Intervals", items: [["Warm-up","5 min easy"],["Hard effort / easy recovery","8 × 30 s / 90 s"],["Cool-down","5 min easy"]] } },
-    schedule: { 1: "S", 2: "Z", 3: "S", 5: "S", 6: "I" } },
-  { id: "home", name: "Home, No Kit", level: "Any level", days: [1,3,4,6], length: "~30 min",
-    blurb: "Bodyweight only, 4 days. Make it harder by slowing down the lowering phase and adding reps.",
-    sessions: {
-      A: { title: "Push + Legs", items: [["Squats","4 × 15"],["Push-ups (knees ok)","4 × max − 2"],["Split squat","3 × 10 / side"],["Pike push-ups","3 × 8"],["Plank","3 × 40 s"]] },
-      B: { title: "Pull + Core", items: [["Towel or table row","4 × 10"],["Glute bridge, single leg","3 × 10 / side"],["Superman hold","3 × 30 s"],["Mountain climbers","3 × 30 s"],["Side plank","2 × 30 s / side"]] } },
-    rotate: ["A","B"] },
+      A: { title: "Legs + push", items: [["Split squat", "4 × 12 / leg"], ["Push-ups", "4 × max − 2"], ["Single-leg RDL", "3 × 10 / leg"], ["Wall sit", "3 × 45 s"], ["Hotel stairs", "20 min"]] },
+      B: { title: "Pull + core", items: [["Towel or table row", "4 × 10"], ["Single-leg glute bridge", "3 × 12 / leg"], ["Dead bug", "3 × 10 / side"], ["Side plank", "2 × 40 s / side"]] } } },
 ];
 
 /* ---------- State ---------- */
-const DEFAULT = () => ({ v: 1, planId: "start", unit: "kg", goalWeight: null,
-  targets: { steps: 8000, water: 8, protein: 120, sleep: 7.5 }, days: {}, weights: {} });
+const DEFAULT = () => ({ v: 2, planId: "summit", goalWeight: CH.targetKg,
+  targets: { steps: 10000, water: 12, protein: 170, sleep: 7.5 },
+  events: { nangma: "", rakaposhi: "", summit: "", peak: "" },
+  days: {}, weights: { [CH.start]: CH.startKg } });
 let state = DEFAULT();
 let dbRef = null, dirty = false, writing = false, saveTimer = null;
 const LS_KEY = "plate-log-v1";
 
-const pad = n => String(n).padStart(2, "0");
-const keyOf = d => d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
-const parseKey = k => { const [y, m, d] = k.split("-").map(Number); return new Date(y, m - 1, d); };
-const todayKey = () => keyOf(new Date());
+function migrate(s) {
+  const d = DEFAULT();
+  const out = { ...d, ...s, targets: { ...d.targets, ...(s.targets || {}) }, events: { ...d.events, ...(s.events || {}) }, days: s.days || {}, weights: s.weights || {} };
+  let changed = false;
+  if (!s.v || s.v < 2) { // first load after personalisation: switch to Rebirth defaults, keep logged days and weigh-ins
+    out.v = 2; out.planId = "summit"; out.goalWeight = CH.targetKg; out.targets = { ...d.targets }; delete out.unit; changed = true;
+  }
+  if (out.weights[CH.start] == null) { out.weights[CH.start] = CH.startKg; changed = true; }
+  return { out, changed };
+}
 const day = k => (state.days[k] ||= { workout: false, steps: 0, water: 0, protein: 0, sleep: 0, sets: {} });
 const plan = () => PLANS.find(p => p.id === state.planId) || PLANS[0];
 
+function eventOn(k) {
+  const e = state.events;
+  if (e.nangma === k) return "Nangma Valley";
+  if (e.rakaposhi === k) return "Rakaposhi Base Camp";
+  if (e.summit === k) return "Summit trip departs";
+  return null;
+}
+function adjustment(k) {
+  const e = state.events;
+  if (e.summit) { const d = diffDays(k, e.summit); if (d > 0 && d <= 10) return { tag: "Taper", note: `Taper: ${d} day${d > 1 ? "s" : ""} to departure. Do half the sets, keep the intensity, and eat at maintenance. Showing up depleted at 5,000 m is not a flex.` }; }
+  for (const [id, name] of [["nangma", "Nangma"], ["rakaposhi", "Rakaposhi BC"]]) {
+    if (!e[id]) continue; const d = diffDays(k, e[id]);
+    if (d > 0 && d <= 3) return { tag: "Deload", note: `Deload: ${name} in ${d} day${d > 1 ? "s" : ""}. Do half the sets and pack the bag.` };
+  }
+  return null;
+}
 function sessionFor(date) {
-  const p = plan(), dow = date.getDay();
-  if (p.schedule) return p.schedule[dow] ? { key: p.schedule[dow], ...p.sessions[p.schedule[dow]] } : null;
-  if (!p.days.includes(dow)) return null;
-  // Rotate A/B by counting training days since a fixed Monday, so the order stays stable.
-  const monIdx = d => (d + 6) % 7;
-  const epoch = new Date(2024, 0, 1);
-  const weeks = Math.floor(Math.round((new Date(date.getFullYear(), date.getMonth(), date.getDate()) - epoch) / 864e5) / 7);
-  const n = weeks * p.days.length + p.days.filter(d => monIdx(d) < monIdx(dow)).length;
-  const k = p.rotate[n % p.rotate.length];
-  return { key: k, ...p.sessions[k] };
+  const k = keyOf(date), ev = eventOn(k);
+  if (ev) return { title: ev, items: [["Trip day: log the hike as the workout", "—"], ["Note pack weight, hours, how it felt", "—"]], note: "Test event. This is what all the stairs were for." };
+  const p = plan(), code = p.schedule[date.getDay()];
+  if (!code) return null;
+  const w = weekOf(k), s = p.sessions[code];
+  return { ...s, items: s.items.map(([n, dose]) => [n, typeof dose === "function" ? dose(w) : dose]) };
 }
 
 /* ---------- Persistence ---------- */
 function lsLoad() { try { const s = localStorage.getItem(LS_KEY); return s ? JSON.parse(s) : null; } catch { return null; } }
 function lsSave() { try { localStorage.setItem(LS_KEY, JSON.stringify(state)); } catch {} }
-function merge(s) { const d = DEFAULT(); return { ...d, ...s, targets: { ...d.targets, ...(s.targets || {}) }, days: s.days || {}, weights: s.weights || {} }; }
 function setSync(text, ok) { const el = document.getElementById("sync"); el.textContent = text; el.classList.toggle("ok", !!ok); }
-
-function save() {
-  lsSave(); dirty = true;
-  clearTimeout(saveTimer); saveTimer = setTimeout(flush, 700);
-}
+function save() { lsSave(); dirty = true; clearTimeout(saveTimer); saveTimer = setTimeout(flush, 700); }
 async function flush() {
   if (!dbRef) { dirty = false; return; }
   if (writing) { saveTimer = setTimeout(flush, 400); return; }
   writing = true; setSync("Saving…");
   try { await dbRef.set(JSON.parse(JSON.stringify(state))); dirty = false; setSync("Synced", true); }
   catch (e) {
-    if (e && e.code === "unavailable") { setTimeout(flush, 1500 + Math.random() * 1000); }
-    else { setSync("Saved on this device"); if (e && e.code === "quota_exceeded") toast("Storage is full. Older days may need clearing."); }
+    if (e && e.code === "unavailable") setTimeout(flush, 1500 + Math.random() * 1000);
+    else { setSync("Saved on this device"); if (e && e.code === "quota_exceeded") toast("Storage is full. Clear some old days."); }
   } finally { writing = false; }
 }
-
 async function connect() {
-  const local = lsLoad(); if (local) { state = merge(local); renderAll(); }
+  const local = lsLoad();
+  if (local) { const m = migrate(local); state = m.out; if (m.changed) lsSave(); renderAll(); }
   let db = null, uid = null;
   try { const user = await window.claude?.use?.("user"); uid = user ? await user.id() : null; db = uid ? await window.claude.use("db") : null; } catch {}
   if (!db || !uid) { setSync("Saved on this device"); renderAll(); return; }
@@ -306,68 +383,131 @@ async function connect() {
   let first = true;
   dbRef.onSnapshot(snap => {
     if (snap.metadata.hasPendingWrites || dirty || writing) return;
-    if (snap.exists) { state = merge(JSON.parse(JSON.stringify(snap.data()))); lsSave(); renderAll(); setSync("Synced", true); }
-    else if (first) { save(); }
+    if (snap.exists) {
+      const m = migrate(JSON.parse(JSON.stringify(snap.data()))); state = m.out; lsSave(); renderAll(); setSync("Synced", true);
+      if (m.changed) setTimeout(save, 0);
+    } else if (first) setTimeout(save, 0);
     first = false;
   }, () => setSync("Saved on this device"));
+}
+
+/* ---------- Weight maths ---------- */
+function weighIns() { return Object.entries(state.weights).filter(([k]) => k >= CH.start).sort(([a], [b]) => a < b ? -1 : 1); }
+/* 7-day rolling average at each weigh-in (that day plus the 6 before it). */
+function trendSeries() {
+  const w = weighIns();
+  return w.map(([k]) => { const inWin = w.filter(([j]) => { const d = diffDays(j, k); return d >= 0 && d < 7; }); return [k, inWin.reduce((s, [, v]) => s + v, 0) / inWin.length]; });
+}
+const planAt = idx => CH.startKg - (CH.startKg - CH.targetKg) * Math.min(Math.max(idx, 0), TOTAL) / TOTAL;
+function trendAt(series, k) { let v = null; for (const [j, t] of series) { if (j <= k) v = t; else break; } return v; }
+/* kg lost per week from the trend; least squares over the last 21 days, falling back to start→now. */
+function rate(series) {
+  if (series.length < 2) return null;
+  const lastK = series[series.length - 1][0];
+  const pts = series.filter(([k]) => diffDays(k, lastK) <= 21).map(([k, v]) => [diffDays(CH.start, k), v]);
+  if (pts.length >= 3 && pts[pts.length - 1][0] - pts[0][0] >= 6) {
+    const n = pts.length, mx = pts.reduce((s, p) => s + p[0], 0) / n, my = pts.reduce((s, p) => s + p[1], 0) / n;
+    const slope = pts.reduce((s, p) => s + (p[0] - mx) * (p[1] - my), 0) / pts.reduce((s, p) => s + (p[0] - mx) ** 2, 0);
+    return -slope * 7;
+  }
+  const span = diffDays(series[0][0], lastK);
+  return span >= 7 ? (series[0][1] - series[series.length - 1][1]) / span * 7 : null;
+}
+function metrics() {
+  const tk = todayKey(), idx = diffDays(CH.start, tk), left = Math.max(0, diffDays(tk, CH.end));
+  const series = trendSeries(), last = series[series.length - 1];
+  const trend = last ? last[1] : null, lastK = last ? last[0] : null;
+  const planNow = planAt(idx), variance = trend != null ? trend - planAt(diffDays(CH.start, lastK)) : null;
+  const rt = rate(series);
+  const needed = trend != null && left > 0 ? (trend - CH.targetKg) / (left / 7) : null;
+  const projected = trend != null && rt != null ? trend - rt * diffDays(lastK, CH.end) / 7 : null;
+  // Too-fast check: trend dropped > 1.5 kg in each of the last two 7-day windows.
+  let tooFast = false;
+  if (lastK) {
+    const a = trendAt(series, keyOf(new Date(parseKey(lastK).getTime() - 7 * 864e5))), b = trendAt(series, keyOf(new Date(parseKey(lastK).getTime() - 14 * 864e5)));
+    if (a != null && b != null && a - trend > 1.5 && b - a > 1.5) tooFast = true;
+  }
+  const realWeighIns = weighIns().filter(([k]) => k !== CH.start).length;
+  return { tk, idx, left, series, trend, lastK, planNow, variance, rt, needed, projected, tooFast, realWeighIns };
 }
 
 /* ---------- UI helpers ---------- */
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
-let toastT; function toast(m) { const t = $("toast"); t.textContent = m; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => t.hidden = true, 1800); }
+let toastT; function toast(m) { const t = $("toast"); t.textContent = m; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => t.hidden = true, 2200); }
 
 const GOALS = [
-  { k: "steps", label: "Steps", step: 1000, color: "--plate-red", fmt: v => v >= 1000 ? (v / 1000).toFixed(v % 1000 ? 1 : 0) + "k" : v },
-  { k: "water", label: "Glasses of water", step: 1, color: "--plate-blue", fmt: v => v },
-  { k: "protein", label: "Protein (g)", step: 10, color: "--plate-yellow", fmt: v => v },
-  { k: "sleep", label: "Sleep (h)", step: 0.5, color: "--plate-green", fmt: v => v },
+  { k: "steps", label: "Steps", step: 1000, color: "--plate-red", fmt: v => v >= 1000 ? (v / 1000).toFixed(v % 1000 ? 1 : 0) + "k" : v, hit: "10k steps. Your ankles have been notified." },
+  { k: "water", label: "Water (250 ml glasses)", step: 1, color: "--plate-blue", fmt: v => v, hit: "Water done. Karachi humidity loses this round." },
+  { k: "protein", label: "Protein (g)", step: 10, color: "--plate-yellow", fmt: v => v, hit: "Protein hit. Muscle stays on the books." },
+  { k: "sleep", label: "Sleep (h)", step: 0.5, color: "--plate-green", fmt: v => v, hit: "Sleep target hit. Recovery is free alpha." },
 ];
 function goalsHit(d) { return GOALS.filter(g => state.targets[g.k] > 0 && (d[g.k] || 0) >= state.targets[g.k]).length; }
-
 function plateSVG(frac, color) {
   const R = 44, C = 2 * Math.PI * R, off = C * (1 - Math.min(frac, 1));
   return `<svg viewBox="0 0 104 104" aria-hidden="true">
     <circle cx="52" cy="52" r="${R}" fill="none" stroke="var(--track)" stroke-width="14"/>
     <circle class="ring" cx="52" cy="52" r="${R}" fill="none" stroke="var(${color})" stroke-width="14" stroke-dasharray="${C}" stroke-dashoffset="${off}" transform="rotate(-90 52 52)"/>
-    <circle cx="52" cy="52" r="9" fill="var(--surface)" stroke="var(--line)" stroke-width="2"/>
-  </svg>`;
+    <circle cx="52" cy="52" r="9" fill="var(--surface)" stroke="var(--line)" stroke-width="2"/></svg>`;
 }
 
 /* ---------- Render: Today ---------- */
+function verdict(m) {
+  if (m.realWeighIns === 0) return { cls: "warn", pill: "No data", text: `Plan says ~${m.planNow.toFixed(1)} kg today. You have one data point, from Sep 7. You wouldn't accept that from a portfolio company. Log a weigh-in.` };
+  if (m.tooFast) return { cls: "bad", pill: "Too fast", text: `Down more than 1.5 kg a week for two weeks running. Part of that is muscle you'll want in December. Eat 200–300 kcal more and keep protein at ${state.targets.protein} g.` };
+  const v = m.variance;
+  if (v <= -0.3) return { cls: "ok", pill: "Ahead", text: `${Math.abs(v).toFixed(1)} kg ahead of plan. Don't get greedy; check protein and sleep.` };
+  if (v <= 0.5) return { cls: "ok", pill: "On plan", text: `Within ${Math.max(0.1, Math.abs(v)).toFixed(1)} kg of plan. Keep doing exactly this.` };
+  const need = m.needed != null ? ` From here you need ${m.needed.toFixed(2)} kg/week.` : "";
+  return { cls: v > 1.5 ? "bad" : "warn", pill: "Behind", text: `${v.toFixed(1)} kg behind plan.${need}${m.needed > 1.3 ? " That's aggressive. 87–89 kg on Dec 25 is still a big win, and you'll have the legs to climb." : " Still recoverable: tighten food on weekdays."}` };
+}
+function renderLedger() {
+  const m = metrics(), e = state.events;
+  const dayN = Math.min(Math.max(m.idx + 1, 0), TOTAL + 1), pct = Math.min(100, Math.max(0, m.idx / TOTAL * 100));
+  const summitTxt = e.summit ? `${Math.max(0, diffDays(m.tk, e.summit))} days to summit trip${e.peak ? " · " + esc(e.peak) : ""}` : "Summit: Dec 2026, date not set";
+  const vd = verdict(m);
+  $("ledger").innerHTML = `
+    <div class="session-head"><div class="eyebrow">Day ${dayN} · ${phaseOf(weekOf(m.tk))} phase, week ${weekOf(m.tk)}</div><span class="pill ${vd.cls}">${vd.pill}</span></div>
+    <div class="bar" aria-hidden="true"><i style="width:${pct}%"></i></div>
+    <div class="ledger">
+      <div><b class="num">${m.trend != null ? m.trend.toFixed(1) : "—"}</b><span>trend kg</span></div>
+      <div><b class="num">${m.planNow.toFixed(1)}</b><span>plan kg today</span></div>
+      <div><b class="num ${m.variance > 0.05 ? "pos" : m.variance < -0.05 ? "neg" : ""}">${m.variance != null && m.realWeighIns ? sgn(m.variance) : "—"}</b><span>vs plan</span></div>
+    </div>
+    <p class="verdict">${vd.text}</p>
+    <div class="muted num" style="font-size:.85rem">${m.left} days to Dec 25 · ${summitTxt}</div>`;
+}
 function renderToday() {
   const now = new Date(), k = todayKey(), d = day(k);
   $("dateLine").textContent = now.toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "short" });
-  const s = sessionFor(now), sess = s || REST, p = plan();
-  const items = sess.items.map(([n, dose], i) => {
-    const id = "ex-" + i; const on = !!d.sets[i];
-    return `<label for="${id}"><input type="checkbox" id="${id}" data-i="${i}" ${on ? "checked" : ""}><span class="name">${esc(n)}</span><span class="dose num">${esc(dose)}</span></label>`;
-  }).join("");
+  renderLedger();
+  const s = sessionFor(now), sess = s || REST, p = plan(), adj = adjustment(k), w = weekOf(k);
+  const items = sess.items.map(([n, dose], i) => `<label for="ex-${i}"><input type="checkbox" id="ex-${i}" data-i="${i}" ${d.sets[i] ? "checked" : ""}><span class="name">${esc(n)}</span><span class="dose num">${esc(dose)}</span></label>`).join("");
   $("sessionCard").innerHTML = `
-    <div class="session-head"><div><div class="eyebrow">${s ? esc(p.name) + " · " + esc(p.length) : "Rest day"}</div><h2>${esc(sess.title)}</h2></div>
+    <div class="session-head"><div><div class="eyebrow">${s ? esc(p.name) + " · week " + w + (adj ? " · " + adj.tag : "") : "Rest day"}</div><h2>${esc(sess.title)}</h2></div>
     ${d.workout ? '<span class="pill ok">Done</span>' : ""}</div>
+    ${adj ? `<div class="alert">${esc(adj.note)}</div>` : ""}
     <div class="ex">${items}</div>
-    ${sess.note ? `<p class="tip" style="margin:0">${esc(sess.note)}</p>` : ""}
-    <button class="btn ${d.workout ? "done" : ""}" id="doneBtn">${d.workout ? "Workout logged ✓" : s ? "Finish workout" : "Log active recovery"}</button>`;
+    ${sess.note ? `<p class="tip">${esc(sess.note)}</p>` : ""}
+    <button class="btn ${d.workout ? "done" : ""}" id="doneBtn">${d.workout ? "Logged ✓" : s ? "Finish session" : "Log recovery"}</button>`;
   $("sessionCard").querySelectorAll("input[type=checkbox]").forEach(cb => cb.addEventListener("change", () => {
     d.sets[cb.dataset.i] = cb.checked;
-    const all = sess.items.every((_, i) => d.sets[i]);
-    if (all && !d.workout) { d.workout = true; toast("All sets done. Workout logged."); }
+    if (sess.items.every((_, i) => d.sets[i]) && !d.workout) { d.workout = true; toast("Every set done. Logged."); }
     save(); renderToday();
   }));
-  $("doneBtn").addEventListener("click", () => { d.workout = !d.workout; if (d.workout) toast("Workout logged."); save(); renderToday(); });
+  $("doneBtn").addEventListener("click", () => { d.workout = !d.workout; if (d.workout) toast("Logged. Another day closer to Dec 25."); save(); renderToday(); });
 
   $("plates").innerHTML = GOALS.map(g => {
     const v = d[g.k] || 0, t = state.targets[g.k] || 0;
-    return `<div class="plate"><div style="position:relative">${plateSVG(t ? v / t : 0, g.color)}</div>
+    return `<div class="plate">${plateSVG(t ? v / t : 0, g.color)}
       <div class="val num">${g.fmt(v)}<span class="muted" style="font-size:.95rem;font-weight:600"> / ${g.fmt(t)}</span></div>
       <div class="lbl">${g.label}</div>
       <div class="stepper"><button data-g="${g.k}" data-d="-1" aria-label="Less ${g.label}">−</button><button data-g="${g.k}" data-d="1" aria-label="More ${g.label}">+</button></div></div>`;
   }).join("");
   $("plates").querySelectorAll("button").forEach(b => b.addEventListener("click", () => {
-    const g = GOALS.find(x => x.k === b.dataset.g), before = goalsHit(d);
-    d[g.k] = Math.max(0, Math.round(((d[g.k] || 0) + g.step * Number(b.dataset.d)) * 10) / 10);
-    if (goalsHit(d) > before && (d[g.k] >= state.targets[g.k])) toast(g.label + " goal hit.");
+    const g = GOALS.find(x => x.k === b.dataset.g), was = (d[g.k] || 0) >= state.targets[g.k];
+    d[g.k] = Math.max(0, r1((d[g.k] || 0) + g.step * Number(b.dataset.d)));
+    if (!was && d[g.k] >= state.targets[g.k]) toast(g.hit);
     save(); renderToday();
   }));
   $("goalsHit").textContent = goalsHit(d) + " of 4 hit";
@@ -377,83 +517,102 @@ function renderToday() {
 function score(k) { const d = state.days[k]; if (!d) return 0; return (d.workout ? 2 : 0) + goalsHit(d); }
 function renderProgress() {
   const now = new Date(); now.setHours(0, 0, 0, 0);
-  // streak: consecutive days with a workout or ≥2 goals hit, allowing today to be in progress
-  let streak = 0, c = new Date(now);
+  let streak = 0; const c = new Date(now);
   if (score(keyOf(c)) < 2) c.setDate(c.getDate() - 1);
   while (score(keyOf(c)) >= 2) { streak++; c.setDate(c.getDate() - 1); }
   const mon = new Date(now); mon.setDate(now.getDate() - ((now.getDay() + 6) % 7));
   let wk = 0; for (let i = 0; i < 7; i++) { const x = new Date(mon); x.setDate(mon.getDate() + i); if (state.days[keyOf(x)]?.workout) wk++; }
   $("stStreak").textContent = streak;
   $("stWeek").textContent = wk + "/" + plan().days.length;
-  $("stTotal").textContent = Object.values(state.days).filter(d => d.workout).length;
+  $("stTotal").textContent = Object.entries(state.days).filter(([k, d]) => k >= CH.start && d.workout).length;
 
   const start = new Date(mon); start.setDate(mon.getDate() - 28);
-  let html = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"].map(d => `<div class="dow">${d[0]}</div>`).join("");
+  let html = ["M","T","W","T","F","S","S"].map(d => `<div class="dow">${d}</div>`).join("");
   for (let i = 0; i < 35; i++) {
     const x = new Date(start); x.setDate(start.getDate() + i); const k = keyOf(x), sc = score(k);
     const lv = sc >= 5 ? 3 : sc >= 3 ? 2 : sc >= 1 ? 1 : 0;
-    const cls = x > now ? "future" : "l" + lv;
-    html += `<div class="cell ${cls} ${k === keyOf(now) ? "today" : ""}" title="${k}">${x.getDate()}</div>`;
+    html += `<div class="cell ${x > now ? "future" : "l" + lv} ${k === keyOf(now) ? "today" : ""} ${eventOn(k) ? "event" : ""}" title="${k}${eventOn(k) ? " · " + eventOn(k) : ""}">${x.getDate()}</div>`;
   }
   $("heat").innerHTML = html;
 
-  $("wUnit").textContent = state.unit;
   if (!$("wDate").value) $("wDate").value = todayKey();
-  renderWeightChart();
+  renderWeightChart(); renderMilestones();
   const t = state.targets;
   $("tSteps").value = t.steps; $("tWater").value = t.water; $("tProtein").value = t.protein; $("tSleep").value = t.sleep;
-  $("tGoalW").value = state.goalWeight ?? ""; $("tUnit").value = state.unit;
+  $("evNangma").value = state.events.nangma; $("evRakaposhi").value = state.events.rakaposhi; $("evSummit").value = state.events.summit; $("evPeak").value = state.events.peak;
 }
 function renderWeightChart() {
-  const pts = Object.entries(state.weights).sort(([a], [b]) => a < b ? -1 : 1).slice(-30);
-  if (!pts.length) { $("wChart").innerHTML = `<p class="tip" style="margin:0">No weigh-ins yet. Log one above; weigh in the morning, same scale, 1–3 times a week. Trends matter more than single days.</p>`; return; }
-  const W = 480, H = 200, L = 40, Rr = 14, T = 14, B = 26;
-  const vals = pts.map(p => p[1]); const gw = state.goalWeight;
-  let lo = Math.min(...vals, gw ?? Infinity), hi = Math.max(...vals, gw ?? -Infinity);
-  if (hi - lo < 2) { lo -= 1; hi += 1; } lo = Math.floor(lo); hi = Math.ceil(hi);
-  const t0 = parseKey(pts[0][0]).getTime(), t1 = parseKey(pts[pts.length - 1][0]).getTime() || t0;
-  const x = k => pts.length === 1 ? (L + W - Rr) / 2 : L + (parseKey(k).getTime() - t0) / (t1 - t0 || 1) * (W - L - Rr);
-  const y = v => T + (hi - v) / (hi - lo) * (H - T - B);
-  const ticks = [lo, (lo + hi) / 2, hi];
-  let g = ticks.map(v => `<line x1="${L}" x2="${W - Rr}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)" stroke-width="1"/><text x="${L - 6}" y="${y(v) + 4}" text-anchor="end">${+v.toFixed(1)}</text>`).join("");
-  if (gw) g += `<line x1="${L}" x2="${W - Rr}" y1="${y(gw)}" y2="${y(gw)}" stroke="var(--good)" stroke-dasharray="5 4" stroke-width="1.5"/><text x="${W - Rr}" y="${y(gw) - 5}" text-anchor="end" style="fill:var(--good)">goal ${gw}</text>`;
-  const line = pts.map(([k, v], i) => (i ? "L" : "M") + x(k).toFixed(1) + " " + y(v).toFixed(1)).join(" ");
-  const area = line + ` L${x(pts[pts.length - 1][0]).toFixed(1)} ${H - B} L${x(pts[0][0]).toFixed(1)} ${H - B} Z`;
-  const last = pts[pts.length - 1];
-  const fmtD = k => parseKey(k).toLocaleDateString(undefined, { day: "numeric", month: "short" });
-  const delta = pts.length > 1 ? +(last[1] - pts[0][1]).toFixed(1) : 0;
+  const m = metrics(), raw = weighIns();
+  const W = 480, H = 260, L = 44, R = 14, T = 18, B = 30;
+  const vals = raw.map(p => p[1]);
+  const lo = Math.min(83, ...vals.map(v => Math.floor(v - 1))), hi = Math.max(104, ...vals.map(v => Math.ceil(v + 1)));
+  const x = i => L + i / TOTAL * (W - L - R), y = v => T + (hi - v) / (hi - lo) * (H - T - B);
+  const xi = k => x(Math.min(Math.max(diffDays(CH.start, k), 0), TOTAL));
+  const endFast = CH.startKg - 1.0 * TOTAL / 7, endSlow = CH.startKg - 0.7 * TOTAL / 7;
+  let g = [CH.startKg, ...CH.checkpoints].map(v => `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)"/><text x="${L - 5}" y="${y(v) + 4}" text-anchor="end">${v}</text>`).join("");
+  g += `<polygon points="${x(0)},${y(CH.startKg)} ${x(TOTAL)},${y(endSlow)} ${x(TOTAL)},${y(endFast)}" fill="var(--band)"/>`;
+  g += `<line x1="${x(0)}" y1="${y(CH.startKg)}" x2="${x(TOTAL)}" y2="${y(CH.targetKg)}" stroke="var(--fg)" stroke-width="1.5" stroke-dasharray="6 5"/>`;
+  if (m.idx >= 0 && m.idx <= TOTAL) g += `<line x1="${x(m.idx)}" x2="${x(m.idx)}" y1="${T}" y2="${H - B}" stroke="var(--muted)" stroke-width="1" stroke-dasharray="2 3"/><text x="${x(m.idx)}" y="${T - 3 + 10}" text-anchor="middle" style="font-weight:600">today</text>`;
+  const trendPath = m.series.map(([k, v], i) => (i ? "L" : "M") + xi(k).toFixed(1) + " " + y(v).toFixed(1)).join(" ");
+  if (m.series.length > 1) g += `<path d="${trendPath}" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linejoin="round"/>`;
+  if (m.projected != null && m.lastK < CH.end) g += `<line x1="${xi(m.lastK)}" y1="${y(m.trend)}" x2="${x(TOTAL)}" y2="${y(m.projected)}" stroke="var(--accent)" stroke-width="2" stroke-dasharray="3 4" opacity=".8"/><circle cx="${x(TOTAL)}" cy="${y(m.projected)}" r="4" fill="var(--surface)" stroke="var(--accent)" stroke-width="2"/>`;
+  g += raw.map(([k, v]) => `<circle cx="${xi(k)}" cy="${y(v)}" r="${k === m.lastK ? 4.5 : 2.5}" fill="var(--accent)" opacity="${k === m.lastK ? 1 : .55}"/>`).join("");
+  g += `<text x="${L}" y="${H - 6}">${fmtD(CH.start)}</text><text x="${W - R}" y="${H - 6}" text-anchor="end">${fmtD(CH.end)}</text>`;
+
+  const proj = m.projected != null ? `${m.projected.toFixed(1)} kg` : "—";
+  const projNote = m.projected == null ? "Needs a week or more of weigh-ins." : m.projected <= CH.targetKg + 0.3 ? "On track for 85." : `${(m.projected - CH.targetKg).toFixed(1)} kg short of 85 at this pace.`;
+  const last = raw[raw.length - 1];
   $("wChart").innerHTML = `
-    <div class="top"><div><span class="eyebrow">Latest</span><div style="font-family:var(--font-display);font-weight:800;font-size:1.6rem" class="num">${last[1]} ${state.unit}</div></div>
-    <span class="muted num" style="font-size:.9rem">${delta > 0 ? "+" : ""}${delta} ${state.unit} over ${pts.length} weigh-ins</span></div>
-    <svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Body weight trend">
-      ${g}
-      <path d="${area}" fill="var(--accent)" opacity=".12"/>
-      <path d="${line}" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linejoin="round"/>
-      ${pts.map(([k, v]) => `<circle cx="${x(k)}" cy="${y(v)}" r="${k === last[0] ? 5 : 2.5}" fill="var(--accent)"/>`).join("")}
-      <text x="${L}" y="${H - 6}">${fmtD(pts[0][0])}</text>
-      ${pts.length > 1 ? `<text x="${W - Rr}" y="${H - 6}" text-anchor="end">${fmtD(last[0])}</text>` : ""}
-    </svg>
-    <button class="btn ghost" id="wUndo" style="font-size:.9rem;padding:8px 12px;justify-self:start">Remove ${fmtD(last[0])} entry</button>`;
-  $("wUndo").addEventListener("click", () => { delete state.weights[last[0]]; save(); renderWeightChart(); toast("Entry removed."); });
+    <div class="ledger">
+      <div><b class="num">${proj}</b><span>projected Dec 25</span></div>
+      <div><b class="num">${m.rt != null ? m.rt.toFixed(2) : "—"}</b><span>kg/week now</span></div>
+      <div><b class="num">${m.needed != null ? m.needed.toFixed(2) : "—"}</b><span>kg/week needed</span></div>
+    </div>
+    <p class="tip">${projNote} The plan line needs 1.12 kg/week. The green band is the realistic 0.7–1.0 kg/week, which ends at ${endFast.toFixed(0)}–${endSlow.toFixed(0)} kg.</p>
+    <svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Weight trend against the Rebirth plan">${g}</svg>
+    <div class="keys"><span><i style="border-color:var(--accent)"></i>7-day trend</span><span><i style="border-color:var(--fg);border-top-style:dashed"></i>plan to 85</span><span><i style="border-color:var(--band);border-top-width:8px"></i>realistic band</span><span><i style="border-color:var(--accent);border-top-style:dotted"></i>projection</span></div>
+    <p class="tip">Weigh in after waking up, after the bathroom, before water. Three or more times a week; the trend ignores daily noise.</p>
+    ${last && last[0] !== CH.start ? `<button class="btn ghost small" id="wUndo">Remove ${fmtD(last[0])} (${last[1]} kg)</button>` : ""}`;
+  $("wUndo")?.addEventListener("click", () => { delete state.weights[last[0]]; save(); renderAll(); toast("Entry removed."); });
+}
+function renderMilestones() {
+  const m = metrics();
+  const rows = CH.checkpoints.map(cp => {
+    const hit = m.series.find(([, v]) => v <= cp);
+    const planDate = keyOf(new Date(parseKey(CH.start).getTime() + Math.round((CH.startKg - cp) / (CH.startKg - CH.targetKg) * TOTAL) * 864e5));
+    let right;
+    if (hit) right = `<span class="pill ok">Hit ${fmtD(hit[0])}</span>`;
+    else if (m.trend != null && m.rt > 0.05) { const eta = keyOf(new Date(parseKey(m.lastK).getTime() + (m.trend - cp) / m.rt * 7 * 864e5)); right = `<span class="pill ${eta <= planDate ? "ok" : "warn"} num">ETA ${fmtD(eta)}</span>`; }
+    else right = `<span class="pill">Plan ${fmtD(planDate)}</span>`;
+    return `<div><span><b class="num">${cp} kg</b> <span class="muted" style="font-size:.85rem">plan: ${fmtD(planDate)}</span></span>${right}</div>`;
+  });
+  const e = state.events;
+  [["Nangma Valley", e.nangma], ["Rakaposhi Base Camp", e.rakaposhi], ["Summit trip" + (e.peak ? ", " + e.peak : ""), e.summit]].forEach(([n, d]) =>
+    rows.push(`<div><span>${esc(n)}</span><span class="pill ${d ? "" : "warn"} num">${d ? fmtD(d) + (diffDays(m.tk, d) >= 0 ? " · in " + diffDays(m.tk, d) + " d" : " · done") : "Date not set"}</span></div>`));
+  $("milestones").innerHTML = rows.join("");
 }
 
 /* ---------- Render: Plans ---------- */
 function renderPlans() {
+  const w = weekOf(todayKey()), ph = phaseOf(w);
   $("plans").innerHTML = PLANS.map(p => {
     const sel = p.id === state.planId;
     const week = [1,2,3,4,5,6,0].map(d => `<div class="${p.days.includes(d) ? "on" : ""}">${DOW[d]}</div>`).join("");
-    const sess = Object.values(p.sessions).map(s => `<li><b>${esc(s.title)}:</b> ${s.items.map(i => esc(i[0]) + " " + esc(i[1])).join(" · ")}</li>`).join("");
+    const sess = Object.values(p.sessions).map(s => `<li><b>${esc(s.title)}:</b> ${s.items.map(([n, dose]) => esc(n) + " " + esc(typeof dose === "function" ? dose(w) : dose)).join(" · ")}</li>`).join("");
+    const phases = p.id === "summit" ? `<div class="phases">${["Base", "Build", "Peak", "Taper"].map(n => `<div class="${n === ph ? "now" : ""}">${n}</div>`).join("")}</div>
+      <p class="tip">Weeks 1–4 base · 5–10 build · 11–14 peak · 15–16 taper. Pack starts at 8 kg and goes up 1 kg a week to 18 kg. The long Saturday goes from 90 to 180 min. This week: ${packKg(w)} kg, ${longMin(w)} min.</p>` : "";
     return `<div class="card plan ${sel ? "selected" : ""}">
       <div class="session-head"><h2>${esc(p.name)}</h2>${sel ? '<span class="pill ok">Your plan</span>' : ""}</div>
       <div class="plan-meta"><span class="pill">${esc(p.level)}</span><span class="pill">${p.days.length} days / week</span><span class="pill">${esc(p.length)}</span></div>
       <p style="margin:0">${esc(p.blurb)}</p>
       <div class="week">${week}</div>
-      <details><summary>See the workouts</summary><ul>${sess}</ul></details>
+      ${phases}
+      <details><summary>See the sessions</summary><ul>${sess}</ul></details>
       ${sel ? "" : `<button class="btn ghost" data-plan="${p.id}">Use this plan</button>`}
     </div>`;
   }).join("");
   $("plans").querySelectorAll("[data-plan]").forEach(b => b.addEventListener("click", () => {
-    state.planId = b.dataset.plan; save(); renderAll(); toast("Plan switched to " + plan().name + ".");
+    state.planId = b.dataset.plan; save(); renderAll(); toast("Switched to " + plan().name + ".");
   }));
 }
 
@@ -471,12 +630,12 @@ $("wForm").addEventListener("submit", e => {
   e.preventDefault();
   const v = parseFloat($("wVal").value), k = $("wDate").value;
   if (!k || !(v > 0)) { toast("Enter a date and a weight."); return; }
-  state.weights[k] = Math.round(v * 10) / 10; $("wVal").value = ""; save(); renderWeightChart(); toast("Weigh-in logged.");
+  state.weights[k] = r1(v); $("wVal").value = ""; save(); renderAll(); toast("Weigh-in logged.");
 });
 [["tSteps","steps"],["tWater","water"],["tProtein","protein"],["tSleep","sleep"]].forEach(([id, k]) =>
   $(id).addEventListener("change", () => { const v = parseFloat($(id).value); if (v >= 0) { state.targets[k] = v; save(); renderToday(); } }));
-$("tGoalW").addEventListener("change", () => { const v = parseFloat($("tGoalW").value); state.goalWeight = v > 0 ? v : null; save(); renderWeightChart(); });
-$("tUnit").addEventListener("change", () => { state.unit = $("tUnit").value; $("wUnit").textContent = state.unit; save(); renderWeightChart(); });
+[["evNangma","nangma"],["evRakaposhi","rakaposhi"],["evSummit","summit"],["evPeak","peak"]].forEach(([id, k]) =>
+  $(id).addEventListener("change", () => { state.events[k] = $(id).value; save(); renderAll(); }));
 document.addEventListener("visibilitychange", () => { if (!document.hidden) renderToday(); });
 
 try { const t = localStorage.getItem("plate-log-tab"); if (t && $("tab-" + t)) showTab(t); } catch {}

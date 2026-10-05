@@ -123,6 +123,8 @@ export type Settings = {
   modelOutputLimit?: number;
   autoSearch: boolean;
   seniority: string;
+  /** Model used for web search; empty means the free 2.5 Flash default. */
+  searchModel?: string;
   weights: Record<Component, number>;
 };
 

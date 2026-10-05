@@ -92,4 +92,25 @@ describe('runDiscovery', () => {
     expect(res.found[0].screen?.score).toBe(70);
     expect(res.stoppedBy).toMatchObject({ kind: 'quota' });
   });
+
+  it('searches with the free 2.5 Flash model and falls back to Flash-Lite when Google refuses', async () => {
+    const urls: string[] = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string, init: RequestInit) => {
+        urls.push(url);
+        if (String(init.body).includes('quick professional-fit')) return reply({ results: [{ i: 0, score: 75, reason: 'ok' }] });
+        if (url.includes('/gemini-2.5-flash:'))
+          return Response.json({ error: { code: 429, status: 'RESOURCE_EXHAUSTED', message: 'Quota exceeded for metric: search grounding, limit: 0' } }, { status: 429 });
+        return reply({ jobs: url.includes('lite') ? [job({})] : [] });
+      }),
+    );
+    const res = await runDiscovery({ key: 'k', settings: { ...settings, locations: 'London' } }, profile, [], [], () => {}, { pauseMs: 0 });
+    expect(urls[0]).toContain('/models/gemini-2.5-flash:generateContent');
+    expect(urls[1]).toContain('/models/gemini-2.5-flash-lite:generateContent');
+    expect(urls.at(-1)).toContain('/models/gemini-test-flash:generateContent');
+    expect(res.searchModel).toBe('gemini-2.5-flash-lite');
+    expect(res.found).toHaveLength(1);
+    expect(res.stoppedBy).toBeUndefined();
+  });
 });

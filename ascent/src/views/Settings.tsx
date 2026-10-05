@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Check, CircleAlert, Download, Eye, EyeOff, ExternalLink, LoaderCircle, Trash2, Upload } from 'lucide-react';
 import { testConnection } from '../lib/ai';
+import { FREE_SEARCH_MODELS } from '../lib/discovery';
 import { componentLabels, components, normalizeAPIKey, type Settings } from '../lib/core';
 import { describeError, listModels, rankModels, type ModelInfo } from '../lib/gemini';
 import { downloadFile, initialWorkspace, parseWorkspace, serialise } from '../lib/store';
@@ -63,7 +64,12 @@ function Connection() {
       modelCache = list;
       setModels(list);
       const free = rankModels(list);
-      setStep(1, { state: 'pass', text: `Accepted. ${list.length} models available to your project, ${free.length} on the free tier (Flash and Flash-Lite).` });
+      const searchModel = FREE_SEARCH_MODELS.find((id) => list.some((x) => x.id === id));
+      if (searchModel) update((w) => ({ ...w, settings: { ...w.settings, searchModel } }));
+      setStep(1, {
+        state: 'pass',
+        text: `Accepted. ${list.length} models available to your project, ${free.length} on the free tier (Flash and Flash-Lite).${searchModel ? ` Job search will use ${searchModel}, the free model with web search.` : ' None of the free web-search models (Gemini 2.5 Flash) is offered to your project, so job search may not work on the free tier.'}`,
+      });
 
       let model = ws.settings.model;
       if (!model || !list.some((m) => m.id === model)) {
@@ -166,6 +172,18 @@ function Connection() {
             {options.map((m) => (
               <option key={m.id} value={m.id}>
                 {m.id}
+              </option>
+            ))}
+          </select>
+        </Field>
+        <Field label="Model for job search" hint="Google’s free tier includes web search only on Gemini 2.5 Flash models.">
+          <select
+            value={ws.settings.searchModel ?? FREE_SEARCH_MODELS[0]}
+            onChange={(e) => update((w) => ({ ...w, settings: { ...w.settings, searchModel: e.target.value } }), `Search model set to ${e.target.value}`)}
+          >
+            {[...new Set([ws.settings.searchModel, ...FREE_SEARCH_MODELS, ...options.map((m) => m.id)].filter((x): x is string => !!x))].map((id) => (
+              <option key={id} value={id}>
+                {id}
               </option>
             ))}
           </select>

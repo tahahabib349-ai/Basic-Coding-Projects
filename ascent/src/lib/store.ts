@@ -38,6 +38,7 @@ const settingsSchema = z.object({
   model: z.string().default(''),
   modelOutputLimit: z.number().optional(),
   autoSearch: z.boolean().default(true),
+  searchModel: z.string().optional(),
   seniority: z.string().default(defaultSettings.seniority),
   weights: weightsSchema.default(defaultWeights),
 });

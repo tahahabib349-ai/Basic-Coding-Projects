@@ -106,6 +106,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
           calls: cur.calls + res.calls,
           usage: cur.usage + res.tokens,
           lastSearch: res.searched.length ? at : cur.lastSearch,
+          settings: res.searchModel && res.searchModel !== cur.settings.searchModel ? { ...cur.settings, searchModel: res.searchModel } : cur.settings,
           activity: [
             { at, action: `Job search: ${res.found.length} new ${res.found.length === 1 ? 'role' : 'roles'} in ${res.searched.length} ${res.searched.length === 1 ? 'market' : 'markets'}` },
             ...cur.activity,

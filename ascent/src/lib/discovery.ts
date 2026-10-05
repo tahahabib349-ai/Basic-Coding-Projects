@@ -65,7 +65,14 @@ export const webSearchLink = (j: Pick<Found, 'company' | 'title' | 'location'>) 
 
 type Ctx = { key: string; settings: Settings };
 
-export async function searchMarket(ctx: Ctx, profile: Profile, market: string) {
+/** Google's free tier includes Search grounding only on the 2.5 Flash models, so searching uses them even when analysis uses a newer model. */
+export const FREE_SEARCH_MODELS = ['gemini-2.5-flash', 'gemini-2.5-flash-lite'];
+
+export function searchModelOrder(settings: Settings) {
+  return [...new Set([settings.searchModel, ...FREE_SEARCH_MODELS].filter((m): m is string => !!m))];
+}
+
+export async function searchMarket(ctx: Ctx, profile: Profile, market: string, model = ctx.settings.model) {
   const today = new Date().toISOString().slice(0, 10);
   const prompt = [
     `Today is ${today}. Search the web for job vacancies that are open now in ${market}.`,
@@ -82,7 +89,7 @@ export async function searchMarket(ctx: Ctx, profile: Profile, market: string) {
   ]
     .filter(Boolean)
     .join('\n');
-  return generateJSON(ctx.key, ctx.settings.model, { system: RULES, prompt, search: true, outputLimit: ctx.settings.modelOutputLimit }, foundSchema);
+  return generateJSON(ctx.key, model, { system: RULES, prompt, search: true }, foundSchema);
 }
 
 export async function screenJobs(ctx: Ctx, profile: Profile, jobs: Pick<Job, 'company' | 'title' | 'location' | 'description'>[]) {
@@ -102,7 +109,7 @@ export async function screenJobs(ctx: Ctx, profile: Profile, jobs: Pick<Job, 'co
   );
 }
 
-export type DiscoveryResult = { found: Job[]; tokens: number; calls: number; searched: string[]; stoppedBy?: GeminiError | Error };
+export type DiscoveryResult = { found: Job[]; tokens: number; calls: number; searched: string[]; searchModel?: string; stoppedBy?: GeminiError | Error };
 
 const STOP_KINDS = new Set(['no-key', 'invalid-key', 'permission', 'api-disabled', 'referrer-blocked', 'location', 'quota', 'no-free-quota', 'network', 'model']);
 const pause = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -122,10 +129,29 @@ export async function runDiscovery(
   const result: DiscoveryResult = { found: [], tokens: 0, calls: 0, searched: [] };
   const now = new Date().toISOString();
 
+  const models = searchModelOrder(ctx.settings);
+  let m = 0;
   for (const [n, market] of markets.entries()) {
     onProgress(`Searching ${market} (${n + 1} of ${markets.length})`);
     try {
-      const { data, tokens, sources } = await searchMarket(ctx, profile, market);
+      let reply: Awaited<ReturnType<typeof searchMarket>> | undefined;
+      // A model without free search quota answers 429 or 404: move to the next free search model and retry this market.
+      while (!reply) {
+        try {
+          reply = await searchMarket(ctx, profile, market, models[m]);
+          result.searchModel = models[m];
+        } catch (e) {
+          if (e instanceof GeminiError && ['quota', 'no-free-quota', 'model'].includes(e.kind) && m < models.length - 1) m += 1;
+          else if (e instanceof GeminiError && ['quota', 'no-free-quota', 'model'].includes(e.kind))
+            throw new GeminiError(
+              e.kind,
+              `Google refused the web search on every free search model (${models.join(', ')}). Google gives free web search only on Gemini 2.5 Flash models, about 500 searches a day. If you searched a lot today, wait until tomorrow.`,
+              { status: e.status, reason: e.reason, googleMessage: e.googleMessage, retryAfter: e.retryAfter },
+            );
+          else throw e;
+        }
+      }
+      const { data, tokens, sources } = reply;
       result.tokens += tokens;
       result.calls += 1;
       result.searched.push(market);

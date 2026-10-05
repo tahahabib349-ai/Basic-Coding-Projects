@@ -148,8 +148,14 @@ export function rankModels(models: ModelInfo[]) {
     .sort((a, b) => preview(a.id) - preview(b.id) || version(b.id) - version(a.id) || lite(a.id) - lite(b.id) || a.id.localeCompare(b.id));
 }
 
+export type WebSource = { uri: string; title: string };
+
 type GenerateResponse = {
-  candidates?: { finishReason?: string; content?: { parts?: { text?: string; thought?: boolean }[] } }[];
+  candidates?: {
+    finishReason?: string;
+    content?: { parts?: { text?: string; thought?: boolean }[] };
+    groundingMetadata?: { groundingChunks?: { web?: { uri?: string; title?: string } }[] };
+  }[];
   promptFeedback?: { blockReason?: string };
   usageMetadata?: { totalTokenCount?: number };
 };
@@ -173,9 +179,9 @@ export function parseJSONText(raw: string): unknown {
 export async function generateJSON<T>(
   key: string,
   model: string,
-  request: { system: string; prompt: string; outputLimit?: number },
+  request: { system: string; prompt: string; outputLimit?: number; search?: boolean },
   schema: z.ZodType<T, z.ZodTypeDef, unknown>,
-): Promise<{ data: T; tokens: number }> {
+): Promise<{ data: T; tokens: number; sources: WebSource[] }> {
   if (!model) throw new GeminiError('model', 'Choose a Gemini model in Settings first (run the connection check to list yours).');
   const maxOutputTokens = Math.min(16_384, request.outputLimit ?? 16_384);
   const r = await call(`${API_ROOT}/models/${encodeURIComponent(model)}:generateContent`, key, {
@@ -183,7 +189,9 @@ export async function generateJSON<T>(
     body: JSON.stringify({
       systemInstruction: { parts: [{ text: request.system }] },
       contents: [{ role: 'user', parts: [{ text: request.prompt }] }],
-      generationConfig: { responseMimeType: 'application/json', temperature: 0.2, maxOutputTokens },
+      // Google Search grounding cannot be combined with forced JSON output on every model, so search answers are parsed from text.
+      ...(request.search ? { tools: [{ google_search: {} }] } : {}),
+      generationConfig: { ...(request.search ? {} : { responseMimeType: 'application/json' }), temperature: 0.2, maxOutputTokens },
     }),
   });
   const body = (await r.json().catch(() => null)) as (GenerateResponse & GoogleErrorBody) | null;
@@ -216,7 +224,10 @@ export async function generateJSON<T>(
       reason: issue ? `${issue.path.join('.') || 'answer'}: ${issue.message}` : undefined,
     });
   }
-  return { data: result.data, tokens: body?.usageMetadata?.totalTokenCount ?? 0 };
+  const sources = (candidate?.groundingMetadata?.groundingChunks ?? [])
+    .map((c) => ({ uri: c.web?.uri ?? '', title: c.web?.title ?? '' }))
+    .filter((c) => c.uri);
+  return { data: result.data, tokens: body?.usageMetadata?.totalTokenCount ?? 0, sources };
 }
 
 /** Plain-English message plus technical detail, for any thrown value. */

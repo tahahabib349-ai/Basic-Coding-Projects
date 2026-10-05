@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { ArrowRight, Check, Plus, Search } from 'lucide-react';
+import { ArrowRight, Check, LoaderCircle, Plus, Radar, Search } from 'lucide-react';
 import { recommendations, splitTerms, stages, type Job } from '../lib/core';
 import { FitRule, formatDate, formatDateTime, OpenTerm, RecTag, recommendationLabel, StatusTag } from '../components/ui';
 import { ProfileImportButton } from '../components/ProfileImport';
@@ -9,7 +9,7 @@ function Setup() {
   const { ws, key } = useWorkspace();
   const hasProfile = !!ws.profile.cv.trim();
   const connected = !!key && !!ws.settings.model;
-  if (hasProfile && connected && ws.jobs.length) return null;
+  if (hasProfile && connected && (ws.jobs.length || ws.lastSearch)) return null;
   const steps = [
     {
       label: 'Your profile',
@@ -32,16 +32,12 @@ function Setup() {
       help: 'Paste your free Google AI Studio key and run the connection check.',
     },
     {
-      label: 'First vacancy',
-      done: ws.jobs.length > 0,
-      doneText: `${ws.jobs.length} recorded`,
-      open: 'None yet',
-      action: (
-        <a className="btn btn-sm" href="#/add">
-          Add vacancy
-        </a>
-      ),
-      help: 'Paste a real listing from LinkedIn, a bank’s careers site or an employer feed.',
+      label: 'First job search',
+      done: !!ws.lastSearch || ws.jobs.length > 0,
+      doneText: ws.lastSearch ? `Searched ${formatDateTime(ws.lastSearch)}` : `${ws.jobs.length} recorded`,
+      open: 'Not run yet',
+      action: null,
+      help: 'Once the two steps above are done, Ascent searches your markets automatically.',
     },
   ];
   return (
@@ -74,13 +70,52 @@ function Setup() {
   );
 }
 
+const ago = (iso?: string) => {
+  if (!iso) return '';
+  const h = (Date.now() - new Date(iso).getTime()) / 3_600_000;
+  if (h < 1) return 'less than an hour ago';
+  if (h < 24) return `${Math.floor(h)} ${Math.floor(h) === 1 ? 'hour' : 'hours'} ago`;
+  return formatDateTime(iso);
+};
+
+function Finder() {
+  const { ws, key, searching, findJobs } = useWorkspace();
+  const ready = !!key && !!ws.settings.model && !!ws.profile.cv.trim();
+  const markets = ws.settings.locations
+    .split(',')
+    .map((m) => m.trim())
+    .filter(Boolean);
+  return (
+    <section className={`finder${searching ? ' is-running' : ''}`} aria-live="polite">
+      <div className="finder-icon" aria-hidden="true">
+        {searching ? <LoaderCircle size={20} className="spin" /> : <Radar size={20} />}
+      </div>
+      <div className="finder-body">
+        <strong>{searching ? `${searching}…` : 'Ascent finds jobs for you'}</strong>
+        <span>
+          {searching
+            ? 'You can keep using Ascent while it searches. This takes a minute or two.'
+            : ready
+              ? `Searches the web across ${markets.length} markets${ws.settings.autoSearch ? ' once a day when you open Ascent' : ''}.${ws.lastSearch ? ` Last search ${ago(ws.lastSearch)}.` : ''}`
+              : 'Load your profile and connect Gemini, then Ascent searches your markets automatically.'}
+        </span>
+      </div>
+      <button type="button" className="btn btn-on-house" disabled={!!searching || !ready} onClick={() => findJobs('manual')}>
+        {searching ? 'Searching…' : 'Search now'}
+      </button>
+    </section>
+  );
+}
+
+const fitOf = (j: Job) => j.score ?? j.screen?.score;
+
 export function Opportunities() {
   const { ws } = useWorkspace();
   const [stage, setStage] = useState(-1);
   const [query, setQuery] = useState('');
   const [market, setMarket] = useState('');
   const [rec, setRec] = useState('');
-  const [sort, setSort] = useState<'newest' | 'fit' | 'employer'>('newest');
+  const [sort, setSort] = useState<'newest' | 'fit' | 'employer'>('fit');
   const [aboveMin, setAboveMin] = useState(false);
 
   const markets = useMemo(() => [...new Set(ws.jobs.map((j) => j.location).filter(Boolean))].sort(), [ws.jobs]);
@@ -94,17 +129,18 @@ export function Opportunities() {
       if (q && !`${j.company} ${j.title} ${j.location}`.toLowerCase().includes(q)) return false;
       if (market && j.location !== market) return false;
       if (rec === 'none' ? !!j.recommendation : rec && j.recommendation !== rec) return false;
-      if (aboveMin && (j.score === undefined || j.score < ws.settings.minScore)) return false;
+      const fit = fitOf(j);
+      if (aboveMin && (fit === undefined || fit < ws.settings.minScore)) return false;
       return true;
     })
     .sort((a, b) =>
-      sort === 'fit' ? (b.score ?? -1) - (a.score ?? -1) : sort === 'employer' ? a.company.localeCompare(b.company) : b.found.localeCompare(a.found),
+      sort === 'fit' ? (fitOf(b) ?? -1) - (fitOf(a) ?? -1) : sort === 'employer' ? a.company.localeCompare(b.company) : b.found.localeCompare(a.found),
     );
 
   const count = (i: number) => ws.jobs.filter((j) => stages[i].statuses.includes(j.status)).length;
   const strong = ws.jobs.filter((j) => j.recommendation === 'STRONG APPLY').length;
   const awaiting = ws.jobs.filter((j) => j.status === 'READY FOR APPROVAL').length;
-  const unscored = ws.jobs.filter((j) => !j.assessment).length;
+  const fresh = ws.jobs.filter((j) => j.status === 'DISCOVERED').length;
   const filtersOn = stage >= 0 || !!query || !!market || !!rec || aboveMin;
   const isExcluded = (j: Job) => excludedCo.some((t) => j.company.toLowerCase().includes(t)) || excludedRole.some((t) => j.title.toLowerCase().includes(t));
 
@@ -115,12 +151,12 @@ export function Opportunities() {
           <h1>Schedule of opportunities</h1>
           <p className="lede">
             {ws.jobs.length === 0
-              ? 'Every vacancy you record appears here, with its fit, recommendation and status.'
+              ? 'Every role Ascent finds, or you add, appears here with its fit and status.'
               : [
                   `${ws.jobs.length} ${ws.jobs.length === 1 ? 'vacancy' : 'vacancies'}`,
                   strong && `${strong} strong apply`,
                   awaiting && `${awaiting} awaiting your approval`,
-                  unscored && `${unscored} not yet analysed`,
+                  fresh && `${fresh} new to review`,
                 ]
                   .filter(Boolean)
                   .join(' · ')}
@@ -132,6 +168,7 @@ export function Opportunities() {
         </button>
       </header>
 
+      <Finder />
       <Setup />
 
       {ws.jobs.length > 0 && (
@@ -168,8 +205,8 @@ export function Opportunities() {
               <option value="none">Not analysed</option>
             </select>
             <select aria-label="Sort" value={sort} onChange={(e) => setSort(e.target.value as typeof sort)}>
-              <option value="newest">Newest first</option>
               <option value="fit">Highest fit</option>
+              <option value="newest">Newest first</option>
               <option value="employer">Employer A–Z</option>
             </select>
             <label className="check">
@@ -208,10 +245,10 @@ export function Opportunities() {
                       {j.location}
                     </td>
                     <td className="num cell-fit" data-label="Fit">
-                      <FitRule score={j.score} />
+                      <FitRule score={fitOf(j)} estimate={j.score === undefined && !!j.screen} />
                     </td>
                     <td className="cell-rec" data-label="Recommendation">
-                      <RecTag value={j.recommendation} />
+                      <RecTag value={j.recommendation} estimate={!!j.screen} />
                     </td>
                     <td className="cell-status" data-label="Status">
                       <StatusTag value={j.status} />

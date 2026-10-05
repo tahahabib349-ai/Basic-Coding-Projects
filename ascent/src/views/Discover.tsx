@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { ExternalLink, Search } from 'lucide-react';
+import { ExternalLink, LoaderCircle, Search } from 'lucide-react';
 import { isDuplicate, safeURL, splitTerms } from '../lib/core';
 import { providers, readFeed, type FeedJob, type Provider } from '../lib/feeds';
-import { Field } from '../components/ui';
+import { Field, formatDateTime } from '../components/ui';
 import { useWorkspace } from '../state';
 import { reviewVacancy } from './AddVacancy';
 
@@ -11,7 +11,9 @@ const DEFAULT_KEYWORDS = 'finance, investment, analyst, associate, infrastructur
 let lastResult: { jobs: FeedJob[]; provider: Provider; board: string } | null = null;
 
 export function Discover() {
-  const { ws, run, busy, notify } = useWorkspace();
+  const { ws, run, busy, notify, update, key, searching, findJobs } = useWorkspace();
+  const ready = !!key && !!ws.settings.model && !!ws.profile.cv.trim();
+  const newFinds = ws.jobs.filter((j) => j.source.startsWith('Web search') && j.status === 'DISCOVERED').length;
   const [provider, setProvider] = useState<Provider>(lastResult?.provider ?? 'greenhouse');
   const [board, setBoard] = useState(lastResult?.board ?? '');
   const [jobs, setJobs] = useState<FeedJob[]>(lastResult?.jobs ?? []);
@@ -39,12 +41,68 @@ export function Discover() {
     <div className="page">
       <header className="page-head">
         <div>
-          <h1>Discover</h1>
-          <p className="lede">Read an employer’s public job board directly. Free, on demand, and nothing is stored until you record a vacancy.</p>
+          <h1>Find jobs</h1>
+          <p className="lede">Ascent searches the web for open roles that match your CV, scores each one, and puts them in your schedule under “New”. You only decide which to pursue.</p>
         </div>
       </header>
 
-      <section className="sheet form-sheet">
+      <section className="sheet form-sheet" aria-labelledby="auto-title">
+        <div className="sheet-title-row">
+          <h2 id="auto-title" className="sheet-title">
+            Automatic search
+          </h2>
+          <button type="button" className="btn btn-primary" disabled={!!searching || !ready} onClick={() => findJobs('manual')}>
+            {searching ? <LoaderCircle size={16} className="spin" aria-hidden="true" /> : <Search size={16} aria-hidden="true" />}
+            {searching ? 'Searching…' : 'Search now'}
+          </button>
+        </div>
+        {searching && <p className="search-progress">{searching}…</p>}
+        <dl className="terms">
+          <div className="term">
+            <dt>Looks for</dt>
+            <dd>{ws.settings.roles}</dd>
+          </div>
+          <div className="term">
+            <dt>Level</dt>
+            <dd>{ws.settings.seniority}</dd>
+          </div>
+          <div className="term">
+            <dt>In</dt>
+            <dd>{ws.settings.locations}</dd>
+          </div>
+          <div className="term">
+            <dt>Where it searches</dt>
+            <dd>Google Search through your Gemini key: employer careers pages, LinkedIn, eFinancialCareers, Indeed, Bayt, GulfTalent, Rozee and recruiters.</dd>
+          </div>
+          <div className="term">
+            <dt>Last search</dt>
+            <dd>
+              {ws.lastSearch ? formatDateTime(ws.lastSearch) : 'Not run yet'}
+              {newFinds > 0 && (
+                <>
+                  {' · '}
+                  <a className="inline-link" href="#/">
+                    {newFinds} new {newFinds === 1 ? 'role' : 'roles'} waiting
+                  </a>
+                </>
+              )}
+            </dd>
+          </div>
+        </dl>
+        <label className="check">
+          <input type="checkbox" checked={ws.settings.autoSearch} onChange={(e) => update((w) => ({ ...w, settings: { ...w.settings, autoSearch: e.target.checked } }), e.target.checked ? 'Daily search on' : 'Daily search off')} />
+          Search automatically once a day when I open Ascent
+        </label>
+        <p className="term-note">
+          Change roles, level and markets in <a className="inline-link" href="#/settings">Settings</a>. A full search uses about {ws.settings.locations.split(',').filter((x) => x.trim()).length + 1} Gemini requests, well within the free daily allowance. Ascent finds and prepares; you apply.
+        </p>
+      </section>
+
+      <section className="sheet form-sheet" aria-labelledby="boards-title">
+        <h2 id="boards-title" className="sheet-title">
+          Specific employer’s job board
+        </h2>
+        <p className="term-note">Optional. Some employers publish every opening on Greenhouse or Lever, job-board services behind their careers pages. If a firm’s careers link contains greenhouse.io or lever.co, paste it here to see all its roles.</p>
         <div className="discover-grid">
           <Field label="Job board">
             <select value={provider} onChange={(e) => setProvider(e.target.value as Provider)}>

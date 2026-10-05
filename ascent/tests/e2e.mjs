@@ -110,10 +110,18 @@ async function mockGoogle(page) {
       });
     const prompt = req.postData() ?? '';
     let payload = { ok: true };
+    let grounding;
+    if (prompt.includes('Search the web for job vacancies')) {
+      grounding = [{ web: { uri: 'https://vertexaisearch.cloud.google.com/grounding-api-redirect/x', title: 'efinancialcareers.com' } }];
+      payload = prompt.includes('open now in London')
+        ? { jobs: [{ company: 'Harbour Infrastructure Capital', title: 'Associate, Infrastructure Debt', location: 'London', url: 'https://www.efinancialcareers.com/jobs-UK-London-Associate_Infrastructure_Debt.id123', posted: '3 days ago', summary: 'Origination and execution of infrastructure debt investments; financial modelling, credit papers and portfolio monitoring. 2–4 years in project finance or leveraged finance required.' }] }
+        : { jobs: [] };
+    }
+    if (prompt.includes('quick professional-fit score')) payload = { results: [{ i: 0, score: 78, reason: 'Project and syndicated finance experience matches the infrastructure debt mandate.' }] };
     if (prompt.includes('Extract the facts')) payload = { company: 'Northgate Infrastructure Partners', title: 'Associate, Infrastructure & Project Finance', location: 'London', requirements: ['2–4 years in project finance or infrastructure advisory', 'Strong financial modelling; model audit a plus', 'Finance, economics or engineering degree'], deadline: '31 October 2026', authorization_info: '' };
     if (prompt.includes('Assess the candidate')) payload = assessment;
     if (prompt.includes('cover letter')) payload = { content: letter };
-    return route.fulfill({ json: { candidates: [{ finishReason: 'STOP', content: { parts: [{ text: JSON.stringify(payload) }] } }], usageMetadata: { totalTokenCount: 1200 } } });
+    return route.fulfill({ json: { candidates: [{ finishReason: 'STOP', content: { parts: [{ text: JSON.stringify(payload) }] }, groundingMetadata: { groundingChunks: grounding } }], usageMetadata: { totalTokenCount: 1200 } } });
   });
   await page.route('https://boards-api.greenhouse.io/**', (route) =>
     route.request().url().includes('/jobs')
@@ -169,6 +177,18 @@ try {
   await settle(page);
   await shot(page, 'desktop-03-settings-connected');
 
+  // 3b. With profile and key in place, the daily job search starts by itself
+  await page.getByText('Found 1 new role').waitFor({ timeout: 30000 });
+  await page.goto(BASE);
+  await page.getByText('Harbour Infrastructure Capital').waitFor();
+  await settle(page);
+  await shot(page, 'desktop-03b-found-jobs');
+  await page.getByText('Harbour Infrastructure Capital').click();
+  await page.getByText('Quick estimate').first().waitFor();
+  assert.equal(await page.getByRole('link', { name: /Open listing/ }).getAttribute('href'), 'https://www.efinancialcareers.com/jobs-UK-London-Associate_Infrastructure_Debt.id123');
+  await settle(page);
+  await shot(page, 'desktop-03c-found-job-sheet');
+
   // 4. Add a vacancy, fill fields with Gemini, record it
   await page.goto(BASE + '#/add');
   await page.getByPlaceholder(/Paste the whole listing/).fill(listing);
@@ -213,8 +233,8 @@ try {
   // 8. Persistence across reload; key remembered; filters
   await page.goto(BASE);
   await page.reload();
-  await page.getByText('2 vacancies').waitFor();
-  assert.equal(await page.locator('.schedule tbody tr').count(), 2);
+  await page.getByText('3 vacancies').waitFor();
+  assert.equal(await page.locator('.schedule tbody tr').count(), 3);
   await page.getByText('Gemini ready').waitFor();
   await page.getByRole('tab', { name: /Preparing/ }).click();
   assert.equal(await page.locator('.schedule tbody tr').count(), 1);
@@ -228,13 +248,20 @@ try {
   await download.saveAs(backupPath);
   const backup = fs.readFileSync(backupPath, 'utf8');
   assert(!backup.includes('AIzaTEST'), 'backup must not contain the key');
-  assert.equal(JSON.parse(backup).jobs.length, 2);
+  assert.equal(JSON.parse(backup).jobs.length, 3);
   await page.getByRole('button', { name: 'Erase workspace' }).click();
   await page.goto(BASE);
   await page.getByRole('heading', { name: 'Before your first analysis' }).waitFor();
   await page.goto(BASE + '#/settings');
   await page.locator('input[type=file]').last().setInputFiles(backupPath);
-  await page.getByText('Backup restored: 2 vacancies').waitFor();
+  await page.getByText('Backup restored: 3 vacancies').waitFor();
+
+  // Not interested: removed and remembered
+  await page.goto(BASE);
+  await page.getByText('Harbour Infrastructure Capital').click();
+  await page.getByRole('button', { name: 'Not interested' }).click();
+  await page.getByText('Future searches will skip it').waitFor();
+  assert.equal(await page.locator('.schedule tbody tr').count(), 2);
 
   // Profile page with open terms
   await page.goto(BASE + '#/profile');
@@ -263,7 +290,7 @@ try {
   const leaked = geminiCalls.filter((c) => c.url.includes('AIza') || c.body.includes('AIza'));
   assert.equal(leaked.length, 0, 'key must travel only in the header');
   assert.deepEqual(errors, [], `browser errors: ${errors.join('\n')}`);
-  console.log(`E2E passed: ${geminiCalls.length} simulated Google calls, profile import, bad/good key, extract, analyse (83/100), letter, status, duplicate, discover, reload persistence, filters, backup/erase/restore.`);
+  console.log(`E2E passed: ${geminiCalls.length} simulated Google calls, profile import, bad/good key, automatic job search, not-interested, extract, analyse (83/100), letter, status, duplicate, discover, reload persistence, filters, backup/erase/restore.`);
 } finally {
   await browser.close();
   server.kill();

@@ -214,8 +214,11 @@ function Preferences() {
         <Field label="Target roles" hint="Comma separated. Passed to every analysis." wide>
           <textarea rows={3} {...text('roles')} />
         </Field>
-        <Field label="Target markets" hint="Comma separated." wide>
+        <Field label="Target markets" hint="Comma separated. The job search covers each one." wide>
           <textarea rows={2} {...text('locations')} />
+        </Field>
+        <Field label="Level" hint="Seniority the job search looks for, e.g. Analyst, Associate" wide>
+          <input value={d.seniority} onChange={(e) => setD({ ...d, seniority: e.target.value })} />
         </Field>
         <div className="form-grid">
           <Field label="Exclude employers" hint="Hidden in Discover, greyed in your schedule">
@@ -226,6 +229,9 @@ function Preferences() {
           </Field>
           <Field label="Extra keywords" hint="Skills or sectors to emphasise">
             <input {...text('keywords')} />
+          </Field>
+          <Field label="Job age" hint="Search prefers postings newer than this many days">
+            <input type="number" min={1} max={365} value={d.ageDays} onChange={(e) => setD({ ...d, ageDays: Math.max(1, Math.min(365, Number(e.target.value) || 30)) })} />
           </Field>
           <Field label="Minimum fit you act on" hint="Used by the “Fit only” filter">
             <input type="number" min={0} max={100} value={d.minScore} onChange={(e) => setD({ ...d, minScore: Math.max(0, Math.min(100, Number(e.target.value) || 0)) })} />

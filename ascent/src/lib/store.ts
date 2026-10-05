@@ -6,9 +6,9 @@ export const LEGACY_STORAGE_KEY = 'ascent-workspace-v1';
 export const KEY_STORAGE = 'ascent-gemini-key';
 
 export type Activity = { at: string; action: string };
-export type Workspace = { version: 2; profile: Profile; settings: Settings; jobs: Job[]; activity: Activity[]; calls: number; usage: number };
+export type Workspace = { version: 2; profile: Profile; settings: Settings; jobs: Job[]; activity: Activity[]; calls: number; usage: number; dismissed: string[]; lastSearch?: string };
 
-export const initialWorkspace: Workspace = { version: 2, profile: emptyProfile, settings: defaultSettings, jobs: [], activity: [], calls: 0, usage: 0 };
+export const initialWorkspace: Workspace = { version: 2, profile: emptyProfile, settings: defaultSettings, jobs: [], activity: [], calls: 0, usage: 0, dismissed: [] };
 
 const profileSchema = z.object({
   name: z.string().max(200).default(''),
@@ -37,6 +37,8 @@ const settingsSchema = z.object({
   ageDays: z.number().min(0).max(3650).default(45),
   model: z.string().default(''),
   modelOutputLimit: z.number().optional(),
+  autoSearch: z.boolean().default(true),
+  seniority: z.string().default(defaultSettings.seniority),
   weights: weightsSchema.default(defaultWeights),
 });
 
@@ -61,6 +63,9 @@ const jobSchema = z.object({
   documents: z.array(z.object({ type: z.string(), content: z.string(), at: z.string() })).optional(),
   requirements: z.array(z.string()).optional(),
   deadline: z.string().optional(),
+  screen: z.object({ score: z.number(), reason: z.string() }).optional(),
+  posted: z.string().optional(),
+  linkVerified: z.boolean().optional(),
 });
 
 /** Accepts version 2 workspaces and version 1 backups from the earlier Ascent site. */
@@ -73,6 +78,8 @@ export const workspaceSchema = z
     activity: z.array(z.object({ at: z.string(), action: z.string() })).max(2000).default([]),
     calls: z.number().default(0),
     usage: z.number().default(0),
+    dismissed: z.array(z.string()).max(5000).default([]),
+    lastSearch: z.string().optional(),
   })
   .transform((w): Workspace => {
     // Model names from the first version were guesses; make the user pick from their real list.

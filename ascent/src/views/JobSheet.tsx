@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { ArrowLeft, Copy, Download, ExternalLink, FileText, RefreshCw, Sparkles, Trash2 } from 'lucide-react';
+import { ArrowLeft, Copy, Download, ExternalLink, FileText, RefreshCw, Sparkles, ThumbsDown, Trash2 } from 'lucide-react';
+import { dismissKey } from '../lib/discovery';
 import { assessFit, draftCoverLetter } from '../lib/ai';
 import { cacheKey, componentLabels, components, recommendation, safeURL, statuses, weightedScore, type Job, type Status } from '../lib/core';
 import { downloadFile } from '../lib/store';
@@ -10,6 +11,8 @@ export function JobSheet({ id }: { id: string }) {
   const { ws, update, run, key, busy, notify } = useWorkspace();
   const job = ws.jobs.find((j) => j.id === id);
   const [showListing, setShowListing] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [listingDraft, setListingDraft] = useState('');
 
   if (!job)
     return (
@@ -82,7 +85,14 @@ export function JobSheet({ id }: { id: string }) {
     go('');
   };
 
+  const notInterested = () => {
+    update((w) => ({ ...w, jobs: w.jobs.filter((j) => j.id !== job.id), dismissed: [dismissKey(job), ...w.dismissed].slice(0, 5000) }), `Not interested: ${job.company} · ${job.title}`);
+    notify({ tone: 'info', message: `Removed ${job.title} at ${job.company}. Future searches will skip it.` });
+    go('');
+  };
+
   const a = job.assessment;
+  const fromSearch = job.source === 'Web search';
 
   return (
     <div className="page page-sheet">
@@ -102,9 +112,12 @@ export function JobSheet({ id }: { id: string }) {
           </button>
           {listing && (
             <a className="btn" href={listing} target="_blank" rel="noreferrer noopener">
-              Open listing <ExternalLink size={15} aria-hidden="true" />
+              {job.linkVerified === false ? 'Find the posting' : 'Open listing'} <ExternalLink size={15} aria-hidden="true" />
             </a>
           )}
+          <button type="button" className="btn btn-quiet" onClick={notInterested}>
+            <ThumbsDown size={16} aria-hidden="true" /> Not interested
+          </button>
           <button type="button" className="btn btn-quiet btn-danger" onClick={remove}>
             <Trash2 size={16} aria-hidden="true" /> Delete
           </button>
@@ -136,6 +149,14 @@ export function JobSheet({ id }: { id: string }) {
                       )}
                     </span>
                   </div>
+                ) : job.screen ? (
+                  <div className="fit-block">
+                    <FitRule score={job.screen.score} size="lg" estimate />
+                    <span className="rec rec-none">Quick estimate</span>
+                    <span className="term-note">
+                      {job.screen.reason} Run “Analyse fit” for the full assessment with evidence and gaps.
+                    </span>
+                  </div>
                 ) : (
                   <OpenTerm>Not analysed. Run “Analyse fit” to score this vacancy against your résumé.</OpenTerm>
                 )}
@@ -160,9 +181,12 @@ export function JobSheet({ id }: { id: string }) {
                   <Fact value={job.deadline} />
                 </Term>
               )}
+              {job.posted && <Term label="Posted">{job.posted}</Term>}
               <Term label="Source">
-                {job.source}
-                {listing && (
+                {fromSearch ? 'Found by Ascent’s web search' : job.source}
+                {job.linkVerified === false ? (
+                  <span className="term-note">The posting’s exact link could not be confirmed, so the button searches for it. Check the employer’s site before applying.</span>
+                ) : listing && (
                   <>
                     {' · '}
                     <a href={listing} target="_blank" rel="noreferrer noopener" className="inline-link">
@@ -314,7 +338,46 @@ export function JobSheet({ id }: { id: string }) {
                 ))}
               </ul>
             ) : null}
-            <div className={`listing ${showListing ? 'is-open' : ''}`}>{job.description}</div>
+            {fromSearch && !editing && (
+              <p className="term-note">
+                This is a summary from the search. For a sharper analysis, open the posting, copy the full text and{' '}
+                <button
+                  type="button"
+                  className="link-button"
+                  onClick={() => {
+                    setListingDraft('');
+                    setEditing(true);
+                  }}
+                >
+                  paste it here
+                </button>
+                .
+              </p>
+            )}
+            {editing ? (
+              <div className="listing-edit">
+                <textarea className="tall" value={listingDraft} onChange={(e) => setListingDraft(e.target.value)} placeholder="Paste the full job description" aria-label="Full job description" />
+                <div className="actions">
+                  <button type="button" className="btn btn-quiet" onClick={() => setEditing(false)}>
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    disabled={listingDraft.trim().length < 30}
+                    onClick={() => {
+                      patch((j) => ({ ...j, description: listingDraft.trim().slice(0, 45000), source: j.source === 'Web search' ? 'Web search · full listing pasted' : j.source }), `Listing text updated · ${job.company}`);
+                      setEditing(false);
+                      notify({ tone: 'success', message: 'Full listing saved. Run the analysis again to use it.' });
+                    }}
+                  >
+                    Save listing
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className={`listing ${showListing ? 'is-open' : ''}`}>{job.description}</div>
+            )}
           </section>
         </div>
 

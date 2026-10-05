@@ -22,7 +22,7 @@ export type Status = (typeof statuses)[number];
 
 /** Statuses grouped by where a vacancy is in the process, for the pipeline summary. */
 export const stages: { label: string; statuses: Status[] }[] = [
-  { label: 'To review', statuses: ['DISCOVERED', 'REVIEWING', 'SAVED FOR LATER', 'NEEDS USER INPUT'] },
+  { label: 'New', statuses: ['DISCOVERED', 'REVIEWING', 'SAVED FOR LATER', 'NEEDS USER INPUT'] },
   { label: 'Preparing', statuses: ['STRONG MATCH', 'PREPARING', 'READY FOR APPROVAL'] },
   { label: 'Applied', statuses: ['APPLIED', 'ASSESSMENT'] },
   { label: 'Interviewing', statuses: ['INTERVIEW', 'OFFER'] },
@@ -121,6 +121,8 @@ export type Settings = {
   ageDays: number;
   model: string;
   modelOutputLimit?: number;
+  autoSearch: boolean;
+  seniority: string;
   weights: Record<Component, number>;
 };
 
@@ -146,6 +148,11 @@ export type Job = {
   documents?: JobDocument[];
   requirements?: string[];
   deadline?: string;
+  /** Quick screen made when Ascent found the job; the full analysis replaces it. */
+  screen?: { score: number; reason: string };
+  posted?: string;
+  /** False when the link could not be matched to a real search result and points to a web search instead. */
+  linkVerified?: boolean;
 };
 
 /** Public source ships no personal data. The user's résumé arrives through a private profile file. */
@@ -170,8 +177,10 @@ export const defaultSettings: Settings = {
   excludedCompanies: '',
   excludedRoles: '',
   keywords: '',
-  ageDays: 45,
+  ageDays: 30,
   model: '',
+  autoSearch: true,
+  seniority: 'Analyst, Senior Analyst, Associate',
   weights: defaultWeights,
 };
 

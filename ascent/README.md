@@ -1,6 +1,6 @@
 # Ascent: personal job-application workspace
 
-A private, approval-first workspace for a finance career move. Record vacancies, have Gemini score your professional fit against your résumé (with evidence and gaps), draft cover letters, and track every application. Ascent never submits anything for you.
+A private, approval-first job finder for a finance career move. Ascent searches the web for roles that match your CV in your target markets, scores each one, and lists them for you. You open the strong ones, read the full fit analysis, draft a cover letter, and apply yourself. Ascent never submits anything for you.
 
 It is a single web page with no server. Your profile, vacancies and history are stored in your own browser. Gemini is called directly from your browser with your own free key.
 
@@ -9,7 +9,7 @@ It is a single web page with no server. Your profile, vacancies and history are 
 1. **Open the site** (GitHub Pages link for this repository).
 2. **Load your profile.** On the first screen, click *Load profile file* and choose your private profile file. It stays in this browser only; it is not uploaded anywhere.
 3. **Connect Gemini.** Settings → paste your key from [Google AI Studio](https://aistudio.google.com/apikey) → *Save and check connection*. The check runs four steps (key received, Google accepts it, model available, test answer) and tells you exactly which step fails and why.
-4. **Add a vacancy.** Paste the full listing. *Fill fields with Gemini* is optional.
+4. **Let it find jobs.** Once your profile and key are in, Ascent searches every target market (Google Search through Gemini: careers pages, LinkedIn, eFinancialCareers, Bayt, GulfTalent and more) once a day when you open it, or whenever you tap *Search now*. New roles appear under **New** with a quick fit estimate (~78). Tap *Not interested* to drop one for good. Roles you find yourself can still be added with *Add vacancy*.
 5. **Analyse fit.** On the vacancy's page, read the fit schedule, strengths, and gaps. Work authorization is assessed separately and never lowers the fit score.
 6. **Decide.** Change the status yourself. "Applied" only records that *you* submitted.
 
@@ -41,7 +41,7 @@ Every error says what Google or the browser reported. Click *Technical details* 
 
 ## Not built yet
 
-Internet-wide or scheduled job search, CV tailoring, PDF/Word export, form filling, email tracking. Discover covers employers that publish on Greenhouse or Lever.
+Searching while the app is closed (it searches when you open it), CV tailoring, PDF/Word export, form filling, email tracking. Search results can occasionally be stale or mislabelled: when a posting's link cannot be matched to a real search result, Ascent shows *Find the posting* (a web search) instead of a link, so always confirm on the employer's site.
 
 ## For developers
 

@@ -1,4 +1,5 @@
-import { Compass, Plus, Settings as SettingsIcon, Table2, UserRound } from 'lucide-react';
+import { useEffect, useRef } from 'react';
+import { Plus, Radar, Settings as SettingsIcon, Table2, UserRound } from 'lucide-react';
 import { NoticeBar } from './components/ui';
 import { go, useRoute, useWorkspace } from './state';
 import { AddVacancy } from './views/AddVacancy';
@@ -10,7 +11,7 @@ import { SettingsView } from './views/Settings';
 
 const nav = [
   { path: '', label: 'Opportunities', short: 'Schedule', Icon: Table2 },
-  { path: 'discover', label: 'Discover', short: 'Discover', Icon: Compass },
+  { path: 'discover', label: 'Find jobs', short: 'Find jobs', Icon: Radar },
   { path: 'profile', label: 'Profile', short: 'Profile', Icon: UserRound },
   { path: 'settings', label: 'Settings', short: 'Settings', Icon: SettingsIcon },
 ];
@@ -37,7 +38,24 @@ function GeminiState() {
   );
 }
 
+/** Runs the job search once a day, the first time Ascent is opened with everything set up. */
+function useDailySearch() {
+  const { ws, key, findJobs } = useWorkspace();
+  const started = useRef(false);
+  const due = !ws.lastSearch || Date.now() - new Date(ws.lastSearch).getTime() > 20 * 3_600_000;
+  const ready = ws.settings.autoSearch && !!key && !!ws.settings.model && !!ws.profile.cv.trim();
+  useEffect(() => {
+    if (started.current || !ready || !due) return;
+    const t = setTimeout(() => {
+      started.current = true;
+      void findJobs('auto');
+    }, 800);
+    return () => clearTimeout(t);
+  }, [ready, due, findJobs]);
+}
+
 export default function App() {
+  useDailySearch();
   const route = useRoute();
   const section = route[0] ?? '';
   const active = section === 'job' || section === 'add' ? '' : section;

@@ -52,8 +52,8 @@ const recLabel: Record<Recommendation, string> = {
 };
 export const recommendationLabel = (r: Recommendation) => recLabel[r];
 
-export function RecTag({ value }: { value?: Recommendation }) {
-  if (!value) return <span className="rec rec-none">Not analysed</span>;
+export function RecTag({ value, estimate }: { value?: Recommendation; estimate?: boolean }) {
+  if (!value) return <span className="rec rec-none">{estimate ? 'Quick estimate' : 'Not analysed'}</span>;
   return <span className={`rec rec-${recTone[value]}`}>{recLabel[value]}</span>;
 }
 
@@ -67,10 +67,13 @@ export function scoreTone(score?: number) {
 }
 
 /** Score with a 0–100 rule, the threshold for "Apply" (70) ticked on the rule. */
-export function FitRule({ score, size = 'sm' }: { score?: number; size?: 'sm' | 'lg' }) {
+export function FitRule({ score, size = 'sm', estimate = false }: { score?: number; size?: 'sm' | 'lg'; estimate?: boolean }) {
   return (
-    <span className={`fit-rule fit-${size} tone-${scoreTone(score)}`}>
-      <span className="fit-num">{score ?? '—'}</span>
+    <span className={`fit-rule fit-${size} tone-${scoreTone(score)}${estimate ? ' is-estimate' : ''}`} title={estimate ? 'Quick estimate from the job search; run Analyse fit for the full assessment' : undefined}>
+      <span className="fit-num">
+        {estimate && score !== undefined && <span className="est">~</span>}
+        {score ?? '—'}
+      </span>
       <span className="fit-track" aria-hidden="true">
         <span className="fit-fill" style={{ transform: `scaleX(${(score ?? 0) / 100})` }} />
         <span className="fit-tick" />

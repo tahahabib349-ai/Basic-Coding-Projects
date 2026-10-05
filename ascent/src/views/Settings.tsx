@@ -380,6 +380,7 @@ export function SettingsView() {
       <Connection />
       <Preferences />
       <Data />
+      <p className="build-stamp">Ascent version {__BUILD__}</p>
     </div>
   );
 }

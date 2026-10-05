@@ -1472,6 +1472,12 @@ input[type='checkbox'] {
   background: #ffeb7d;
 }
 
+.build-stamp {
+  font-size: 0.8rem;
+  color: var(--ink-3);
+  text-align: center;
+}
+
 /* ---------- Responsive ---------- */
 
 @media (max-width: 1100px) {

@@ -49,7 +49,7 @@ function Connection() {
         return;
       }
       setKey(k, remember);
-      setStep(0, k.startsWith('AIza') ? { state: 'pass', text: `${k.length} characters received` } : { state: 'warn', text: `${k.length} characters received. AI Studio keys usually begin “AIza”; checking with Google anyway.` });
+      setStep(0, { state: 'pass', text: `${k.length} characters received` });
 
       setStep(1, { state: 'run', text: 'Asking Google…' });
       let list: ModelInfo[];

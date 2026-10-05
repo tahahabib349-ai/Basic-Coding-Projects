@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { canonicalURL, isDuplicate, isUnknown, safeURL, splitTerms, type Job, type Profile, type Settings } from './core';
-import { GeminiError, generateJSON, type WebSource } from './gemini';
+import { GeminiError, generateJSON, listModels, rankModels, type WebSource } from './gemini';
 
 /**
  * Automatic job finding: Gemini searches the live web (Google Search grounding) for vacancies
@@ -65,12 +65,22 @@ export const webSearchLink = (j: Pick<Found, 'company' | 'title' | 'location'>) 
 
 type Ctx = { key: string; settings: Settings };
 
-/** Google's free tier includes Search grounding only on the 2.5 Flash models, so searching uses them even when analysis uses a newer model. */
-export const FREE_SEARCH_MODELS = ['gemini-2.5-flash', 'gemini-2.5-flash-lite'];
+/**
+ * Which free models include web search changes as Google retires models, so Ascent tries them in turn
+ * and remembers the first that works. Google's own suggestion (3.5 Flash-Lite) goes first.
+ */
+export const FREE_SEARCH_MODELS = ['gemini-3.5-flash-lite', 'gemini-2.5-flash', 'gemini-2.5-flash-lite'];
 
-export function searchModelOrder(settings: Settings) {
-  return [...new Set([settings.searchModel, ...FREE_SEARCH_MODELS].filter((m): m is string => !!m))];
+export function searchModelOrder(settings: Settings, available: string[] = []) {
+  const free = rankModels(available.map((id) => ({ id, displayName: id })))
+    .map((m) => m.id)
+    .sort((a, b) => Number(/lite/.test(b)) - Number(/lite/.test(a)));
+  const preferred = available.length ? FREE_SEARCH_MODELS.filter((id) => available.includes(id)) : FREE_SEARCH_MODELS;
+  return [...new Set([settings.searchModel, ...preferred, ...free].filter((m): m is string => !!m))];
 }
+
+/** Errors that mean "this model cannot search for free", so the next model is worth trying. */
+const TRY_NEXT = new Set(['quota', 'no-free-quota', 'model', 'bad-request', 'permission']);
 
 export async function searchMarket(ctx: Ctx, profile: Profile, market: string, model = ctx.settings.model) {
   const today = new Date().toISOString().slice(0, 10);
@@ -129,7 +139,14 @@ export async function runDiscovery(
   const result: DiscoveryResult = { found: [], tokens: 0, calls: 0, searched: [] };
   const now = new Date().toISOString();
 
-  const models = searchModelOrder(ctx.settings);
+  let available: string[] = [];
+  try {
+    available = (await listModels(ctx.key)).map((x) => x.id);
+  } catch {
+    /* fall back to the known free search models */
+  }
+  const models = searchModelOrder(ctx.settings, available);
+  const refused: string[] = [];
   let m = 0;
   for (const [n, market] of markets.entries()) {
     onProgress(`Searching ${market} (${n + 1} of ${markets.length})`);
@@ -141,14 +158,17 @@ export async function runDiscovery(
           reply = await searchMarket(ctx, profile, market, models[m]);
           result.searchModel = models[m];
         } catch (e) {
-          if (e instanceof GeminiError && ['quota', 'no-free-quota', 'model'].includes(e.kind) && m < models.length - 1) m += 1;
-          else if (e instanceof GeminiError && ['quota', 'no-free-quota', 'model'].includes(e.kind))
+          // A model that already searched in this run and now refuses has hit a rate limit, not a missing feature.
+          if (!(e instanceof GeminiError) || !TRY_NEXT.has(e.kind) || result.searchModel === models[m]) throw e;
+          refused.push(`${models[m]}: ${e.status ?? ''} ${e.reason ?? ''}`.trim());
+          onProgress(`Searching ${market}: ${models[m]} can’t search for free, trying another model`);
+          if (m < models.length - 1) m += 1;
+          else
             throw new GeminiError(
-              e.kind,
-              `Google refused the web search on every free search model (${models.join(', ')}). Google gives free web search only on Gemini 2.5 Flash models, about 500 searches a day. If you searched a lot today, wait until tomorrow.`,
-              { status: e.status, reason: e.reason, googleMessage: e.googleMessage, retryAfter: e.retryAfter },
+              'no-free-quota',
+              `Google refused web search on all ${models.length} free models on your key. Your Google project’s free tier does not currently include web search, so Ascent cannot search through Gemini.`,
+              { status: e.status, reason: refused.join(' | '), googleMessage: e.googleMessage },
             );
-          else throw e;
         }
       }
       const { data, tokens, sources } = reply;

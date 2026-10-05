@@ -73,7 +73,7 @@ export function Discover() {
           <div className="term">
             <dt>Where it searches</dt>
             <dd>
-              Google Search through your Gemini key ({ws.settings.searchModel || 'gemini-2.5-flash'}): employer careers pages, LinkedIn, eFinancialCareers, Indeed, Bayt, GulfTalent, Rozee and recruiters.
+              Google Search through your Gemini key ({ws.settings.searchModel || 'the first free model that allows it'}): employer careers pages, LinkedIn, eFinancialCareers, Indeed, Bayt, GulfTalent, Rozee and recruiters.
             </dd>
           </div>
           <div className="term">

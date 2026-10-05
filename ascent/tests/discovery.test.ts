@@ -34,6 +34,7 @@ describe('runDiscovery', () => {
   it('searches each market with Google Search grounding, filters, de-duplicates and screens', async () => {
     const bodies: string[] = [];
     const fetch = vi.fn(async (_url: string, init: RequestInit) => {
+      if (init.method === 'GET') return Response.json({ models: [] });
       const body = String(init.body);
       bodies.push(body);
       if (body.includes('quick professional-fit score')) return reply({ results: [{ i: 0, score: 81, reason: 'Strong PF match' }, { i: 1, score: 40, reason: 'Too senior' }] });
@@ -81,6 +82,7 @@ describe('runDiscovery', () => {
     vi.stubGlobal(
       'fetch',
       vi.fn(async (_u: string, init: RequestInit) => {
+        if (init.method === 'GET') return Response.json({ models: [] });
         if (String(init.body).includes('quick professional-fit')) return reply({ results: [{ i: 0, score: 70, reason: 'ok' }] });
         n += 1;
         if (n === 1) return reply({ jobs: [job({})] });
@@ -93,24 +95,39 @@ describe('runDiscovery', () => {
     expect(res.stoppedBy).toMatchObject({ kind: 'quota' });
   });
 
-  it('searches with the free 2.5 Flash model and falls back to Flash-Lite when Google refuses', async () => {
+  it('tries each free model until Google allows web search, then remembers it', async () => {
     const urls: string[] = [];
     vi.stubGlobal(
       'fetch',
       vi.fn(async (url: string, init: RequestInit) => {
+        if (init.method === 'GET')
+          return Response.json({ models: ['gemini-3.8-flash', 'gemini-3.5-flash-lite', 'gemini-3.6-flash', 'gemini-3.8-pro'].map((id) => ({ name: `models/${id}`, supportedGenerationMethods: ['generateContent'] })) });
         urls.push(url);
         if (String(init.body).includes('quick professional-fit')) return reply({ results: [{ i: 0, score: 75, reason: 'ok' }] });
-        if (url.includes('/gemini-2.5-flash:'))
-          return Response.json({ error: { code: 429, status: 'RESOURCE_EXHAUSTED', message: 'Quota exceeded for metric: search grounding, limit: 0' } }, { status: 429 });
-        return reply({ jobs: url.includes('lite') ? [job({})] : [] });
+        if (url.includes('/gemini-3.5-flash-lite:')) return Response.json({ error: { code: 429, status: 'RESOURCE_EXHAUSTED', message: 'Quota exceeded, limit: 0' } }, { status: 429 });
+        if (url.includes('/gemini-3.8-flash:')) return Response.json({ error: { code: 429, status: 'RESOURCE_EXHAUSTED', message: 'You exceeded your current quota' } }, { status: 429 });
+        return reply({ jobs: [job({})] });
       }),
     );
     const res = await runDiscovery({ key: 'k', settings: { ...settings, locations: 'London' } }, profile, [], [], () => {}, { pauseMs: 0 });
-    expect(urls[0]).toContain('/models/gemini-2.5-flash:generateContent');
-    expect(urls[1]).toContain('/models/gemini-2.5-flash-lite:generateContent');
-    expect(urls.at(-1)).toContain('/models/gemini-test-flash:generateContent');
-    expect(res.searchModel).toBe('gemini-2.5-flash-lite');
+    expect(urls.slice(0, 3).map((u) => u.match(/models\/([^:]+)/)![1])).toEqual(['gemini-3.5-flash-lite', 'gemini-3.8-flash', 'gemini-3.6-flash']);
+    expect(urls.join()).not.toContain('pro');
+    expect(res.searchModel).toBe('gemini-3.6-flash');
     expect(res.found).toHaveLength(1);
     expect(res.stoppedBy).toBeUndefined();
+  });
+
+  it('explains when no free model can search', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (_u: string, init: RequestInit) =>
+        init.method === 'GET'
+          ? Response.json({ models: [{ name: 'models/gemini-3.8-flash', supportedGenerationMethods: ['generateContent'] }] })
+          : Response.json({ error: { code: 429, status: 'RESOURCE_EXHAUSTED', message: 'You exceeded your current quota' } }, { status: 429 }),
+      ),
+    );
+    const res = await runDiscovery({ key: 'k', settings: { ...settings, locations: 'London' } }, profile, [], [], () => {}, { pauseMs: 0 });
+    expect(res.stoppedBy?.message).toContain('does not currently include web search');
+    expect(res.found).toHaveLength(0);
   });
 });

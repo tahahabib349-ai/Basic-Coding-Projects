@@ -64,12 +64,7 @@ function Connection() {
       modelCache = list;
       setModels(list);
       const free = rankModels(list);
-      const searchModel = FREE_SEARCH_MODELS.find((id) => list.some((x) => x.id === id));
-      if (searchModel) update((w) => ({ ...w, settings: { ...w.settings, searchModel } }));
-      setStep(1, {
-        state: 'pass',
-        text: `Accepted. ${list.length} models available to your project, ${free.length} on the free tier (Flash and Flash-Lite).${searchModel ? ` Job search will use ${searchModel}, the free model with web search.` : ' None of the free web-search models (Gemini 2.5 Flash) is offered to your project, so job search may not work on the free tier.'}`,
-      });
+      setStep(1, { state: 'pass', text: `Accepted. ${list.length} models available to your project, ${free.length} on the free tier (Flash and Flash-Lite).` });
 
       let model = ws.settings.model;
       if (!model || !list.some((m) => m.id === model)) {
@@ -176,7 +171,7 @@ function Connection() {
             ))}
           </select>
         </Field>
-        <Field label="Model for job search" hint="Google’s free tier includes web search only on Gemini 2.5 Flash models.">
+        <Field label="Model for job search" hint="Ascent tries each free model and keeps the first one Google allows to search.">
           <select
             value={ws.settings.searchModel ?? FREE_SEARCH_MODELS[0]}
             onChange={(e) => update((w) => ({ ...w, settings: { ...w.settings, searchModel: e.target.value } }), `Search model set to ${e.target.value}`)}
